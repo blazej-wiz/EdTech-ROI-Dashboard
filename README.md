@@ -83,6 +83,26 @@ No redesign of the core logic is required.
 
 ---
 
+## 🔮 Future Work
+
+This project was built as a proof of concept within a limited timeframe. Building on this foundation, future iterations could include:
+
+- **Token-level AI cost modelling**  
+  Incorporating real token-based pricing (e.g. Gemini 2.0 or comparable LLMs) to replace average EdTech pricing assumptions, enabling more accurate and institution-aware cost projections.
+
+- **Usage-based adoption patterns**  
+  Modelling different levels of AI usage across subjects, year groups, or staff roles rather than a single adoption rate.
+
+- **Comparative AI tooling analysis**  
+  Visual comparisons between different AI tools and pricing models, helping institutions assess relative cost-effectiveness and value across providers.
+
+- **Expanded outcome metrics**  
+  Extending beyond absence and retention to explore impacts on workload distribution, assessment turnaround times, or student experience.
+
+These extensions would further strengthen the dashboard’s ability to support evidence-led decision-making around AI adoption.
+
+---
+
 ## 🚀 Getting Started
 
 ```bash
