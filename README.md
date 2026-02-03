@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EdTech ROI Dashboard
 
-## Getting Started
+A decision-support ROI dashboard built to help educational institutions evaluate whether AI adoption delivers real financial and educational value.
 
-First, run the development server:
+Built in under 24 hours during the Finnovator Challenge, this project focuses on **evidence-led decision-making** rather than assumptions or headline claims.
+
+![EdTech ROI Dashboard demo](assets/ROI%20Demo%20Final.gif)
+
+---
+
+## 🚩 The Problem
+
+Teachers are increasingly overworked, leading to burnout, higher absence, and attrition.  
+Schools are then forced into expensive supply cover and recruitment cycles year after year.
+
+Despite this, school leaders are often asked to invest in tools that claim to address these challenges, **without a reliable way to quantify whether those interventions generate a meaningful return**.
+
+---
+
+## 🎯 The Goal
+
+To give school leaders a **clear, defensible way to decide**:
+- whether AI adoption is worth investing in
+- under what conditions it delivers value
+- and where the financial and educational impacts come from
+
+---
+
+## 🧠 The Approach
+
+The dashboard is designed to mirror how school leaders actually evaluate investments:
+
+1. **Fast, high-level view**  
+   A small set of core inputs produces an immediate ROI snapshot.
+
+2. **Deeper modelling when needed**  
+   Assumptions can be refined using institution-specific staffing and cost data for budget and leadership discussions.
+
+3. **Scenario-based decision support**  
+   Key “what if” questions are modelled directly, rather than buried in spreadsheets.
+
+---
+
+## 📊 What the Dashboard Enables
+
+- Quantify the impact of AI adoption using institution-specific data  
+- Model Year 1 ROI, payback period, and 5-year cumulative net benefit  
+- Compare “what if” scenarios for reduced absence and improved staff retention  
+- Identify the conditions required for value — not just whether it exists  
+
+---
+
+## 💡 Financial ROI vs Educational Impact
+
+A deliberate distinction is made between:
+
+- **Cash ROI**  
+  Savings from reduced supply cover and lower attrition.
+
+- **Educational impact**  
+  Time reallocated from administrative and marking tasks to higher-quality, student-facing teaching.
+
+Educational value is shown transparently (including £-equivalent value of reallocated time), but **kept separate from financial ROI** to keep the model honest.
+
+---
+
+## 🏗️ Architecture Overview
+
+- **Frontend:** React / Next.js with a focus on clarity and decision confidence  
+- **Backend logic:** Deterministic financial and staffing models (TypeScript)  
+- **Visuals:** Scenario charts and ROI projections designed for leadership audiences  
+
+---
+
+## 📈 Scalability
+
+Although initially built for secondary schools, the decision framework is intentionally scalable and can be applied to:
+- Universities
+- Further education institutions
+- Alternative education and home-schooling contexts
+
+No redesign of the core logic is required.
+
+---
+
+## 🚀 Getting Started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
