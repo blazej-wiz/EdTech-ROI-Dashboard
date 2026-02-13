@@ -165,7 +165,10 @@ function computeAiSubscriptionAnnual(i: Inputs, adoptedStudents: number, adopted
   const perTeacher = nonneg(i.aiPricePerTeacher);
 
   const t1 = nonneg(i.tier1StudentLimit);
-  const t2 = nonneg(i.tier2StudentLimit);
+const t2Raw = nonneg(i.tier2StudentLimit);
+// Guardrail: tier2 must be >= tier1 (avoid negative pricing segments)
+const t2 = Math.max(t1, t2Raw);
+
 
   const p2 = nonneg(i.tier2PricePerStudent);
   const p3 = nonneg(i.tier3PricePerStudent);
@@ -195,8 +198,11 @@ export function calculate(raw: Partial<Inputs>): Outputs {
 
   const weeks = nonneg(i.weeksPerYear);
   const weeklyTotal = nonneg(i.weeklyHoursTotal);
-  const weeklyMarking = nonneg(i.weeklyMarkingHours);
-  const weeklyOther = Math.max(weeklyTotal - weeklyMarking, 0);
+  // Guardrail: marking hours cannot exceed total hours
+const weeklyMarkingRaw = nonneg(i.weeklyMarkingHours);
+const weeklyMarking = Math.min(weeklyMarkingRaw, weeklyTotal);
+const weeklyOther = Math.max(weeklyTotal - weeklyMarking, 0);
+
 
   const r = resolveReductions(i);
 
@@ -214,8 +220,8 @@ export function calculate(raw: Partial<Inputs>): Outputs {
   const annualSupplySavings =
     sickDaysSavedPerTeacher * adoptedTeachers * nonneg(i.supplyDailyCost); // Model!B26
 
-  const baselineLeavers = adoptedTeachers * clamp01(i.attritionRate); // Model!B27
-  const leaversAvoided = baselineLeavers * r.attrition; // Model!B28
+const baselineLeavers = teachers * clamp01(i.attritionRate); // baseline school-wide leavers
+const leaversAvoided = baselineLeavers * r.attrition * adoptionRate; // effect applies to adopting share
   const annualAttritionSavings = leaversAvoided * nonneg(i.replacementCost); // Model!B29
 
   const annualSavingsCash = annualSupplySavings + annualAttritionSavings; // Model!B30
@@ -278,11 +284,12 @@ export function calculate(raw: Partial<Inputs>): Outputs {
 
   // NEW: Key questions (independent of preset reductions)
   // 1) "If absence drops by 10% / 20% / 30%, how much do we save?"
-  // This is purely supply cover savings: sickDaysPerTeacher * adoptedTeachers * supplyDailyCost * dropRate
+// This is purely supply cover savings among adopting teachers:
+// sickDaysPerTeacher * adoptedTeachers * supplyDailyCost * dropRate
   const absenceRates = [0.1, 0.2, 0.3];
   const absenceSensitivity: SensitivityPoint[] = absenceRates.map((rate) => {
     const annualSupplySavingsAtRate =
-      nonneg(i.sickDaysPerTeacher) * rate * adoptedTeachers * nonneg(i.supplyDailyCost);
+nonneg(i.sickDaysPerTeacher) * rate * adoptedTeachers * nonneg(i.supplyDailyCost);
     return {
       label: `${Math.round(rate * 100)}%`,
       rate,
@@ -290,10 +297,12 @@ export function calculate(raw: Partial<Inputs>): Outputs {
     };
   });
 
-  // 2) "Financial impact by just 5% retention"
-  // Interpret as: 5% attrition reduction (avoid 5% of leavers) * replacementCost
+  // 2) "Financial impact if attrition (leavers) drops by 5% (relative)"
+// i.e., avoid 5% of baseline leavers × replacement cost
+
   const retentionImpact5Annual =
-    baselineLeavers * 0.05 * nonneg(i.replacementCost);
+  baselineLeavers * 0.05 * adoptionRate * nonneg(i.replacementCost);
+
 
   return {
     adoptedStudents,
