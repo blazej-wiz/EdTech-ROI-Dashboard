@@ -319,6 +319,7 @@ export default function Page() {
                   border: `1px solid ${BRAND.border}`,
                   color: BRAND.text,
                   background: "#fff",
+                  cursor: 'pointer',
                 }}
                 onClick={() => setShowAdvanced((s) => !s)}
               >
@@ -326,10 +327,26 @@ export default function Page() {
               </button>
             </div>
 
+{/* Guardrail warnings (non-blocking) */}
+{(draft.adoptionRate < 0 || draft.adoptionRate > 1 || draft.weeklyMarkingHours > draft.weeklyHoursTotal) && (
+  <div
+    className="rounded-xl px-3 py-2 text-xs font-semibold"
+    style={{ background: "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA" }}
+  >
+    {draft.adoptionRate < 0 || draft.adoptionRate > 1 ? (
+      <div>Teacher adoption rate should be between 0 and 1. We’ll clamp it when you click Calculate.</div>
+    ) : null}
+    {draft.weeklyMarkingHours > draft.weeklyHoursTotal ? (
+      <div>Marking hours can’t exceed total weekly hours. We’ll cap marking at total hours.</div>
+    ) : null}
+  </div>
+)}
+
             <div className="mt-4 space-y-4">
               <InputRow label="Number of teachers (FTE)" hint="Required">
                 <TextInput
                   type="number"
+                  min={0}
                   value={draft.teachersFTE}
                   onChange={(e) => setDraft({ ...draft, teachersFTE: Number(e.target.value) })}
                 />
@@ -338,12 +355,13 @@ export default function Page() {
               <InputRow label="Number of students" hint="Required">
                 <TextInput
                   type="number"
+                  min={0}
                   value={draft.students}
                   onChange={(e) => setDraft({ ...draft, students: Number(e.target.value) })}
                 />
               </InputRow>
 
-              <InputRow label="Adoption rate" hint="Required (0.6 = 60% adoption)">
+<InputRow label="Teacher adoption rate" hint="Required (0.6 = 60% of teachers using the tool)">
                 <TextInput
                   type="number"
                   min={0}
@@ -370,11 +388,28 @@ export default function Page() {
                 className="w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition"
                 style={{
                   background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.indigo} 55%, ${BRAND.purple} 100%)`,
+                  cursor: 'pointer',
                 }}
                 onClick={() => {
-                  setApplied(draft);
-                  stopRoiAnimation(true);
-                }}
+  const sanitized: Inputs = {
+    ...draft,
+    adoptionRate: Math.max(0, Math.min(1, Number.isFinite(draft.adoptionRate) ? draft.adoptionRate : 0)),
+    weeklyHoursTotal: Math.max(0, Number.isFinite(draft.weeklyHoursTotal) ? draft.weeklyHoursTotal : 0),
+    weeklyMarkingHours: Math.max(
+      0,
+      Math.min(
+        Number.isFinite(draft.weeklyMarkingHours) ? draft.weeklyMarkingHours : 0,
+        Math.max(0, Number.isFinite(draft.weeklyHoursTotal) ? draft.weeklyHoursTotal : 0)
+      )
+    ),
+  };
+
+  setApplied(sanitized);
+  // Optional: also update draft so the UI reflects what was applied
+  setDraft(sanitized);
+  stopRoiAnimation(true);
+}}
+
               >
                 Calculate
               </button>
@@ -385,6 +420,7 @@ export default function Page() {
                   background: "#fff",
                   border: `1px solid ${BRAND.border}`,
                   color: BRAND.text,
+                  cursor: 'pointer',
                 }}
                 onClick={() => {
                   setDraft(DEFAULTS);
@@ -405,6 +441,7 @@ export default function Page() {
                 <InputRow label="Average teacher salary (£/year)" hint="Used for £-equivalent value of reallocated time">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.avgSalary}
                     onChange={(e) => setDraft({ ...draft, avgSalary: Number(e.target.value) })}
                   />
@@ -413,6 +450,7 @@ export default function Page() {
                 <InputRow label="School weeks per year">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.weeksPerYear}
                     onChange={(e) => setDraft({ ...draft, weeksPerYear: Number(e.target.value) })}
                   />
@@ -421,6 +459,7 @@ export default function Page() {
                 <InputRow label="Weekly working hours per teacher">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.weeklyHoursTotal}
                     onChange={(e) => setDraft({ ...draft, weeklyHoursTotal: Number(e.target.value) })}
                   />
@@ -429,6 +468,7 @@ export default function Page() {
                 <InputRow label="Marking hours per week (per teacher)">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.weeklyMarkingHours}
                     onChange={(e) => setDraft({ ...draft, weeklyMarkingHours: Number(e.target.value) })}
                   />
@@ -485,6 +525,7 @@ export default function Page() {
                 <InputRow label="Sick days per teacher per year">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.sickDaysPerTeacher}
                     onChange={(e) => setDraft({ ...draft, sickDaysPerTeacher: Number(e.target.value) })}
                   />
@@ -493,6 +534,7 @@ export default function Page() {
                 <InputRow label="Supply teacher daily cost (£/day)">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.supplyDailyCost}
                     onChange={(e) => setDraft({ ...draft, supplyDailyCost: Number(e.target.value) })}
                   />
@@ -512,6 +554,7 @@ export default function Page() {
                 <InputRow label="Cost to replace one teacher (£)">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.replacementCost}
                     onChange={(e) => setDraft({ ...draft, replacementCost: Number(e.target.value) })}
                   />
@@ -520,6 +563,7 @@ export default function Page() {
                 <InputRow label="Training cost (one-time, Year 1, £)">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.trainingOneTime}
                     onChange={(e) => setDraft({ ...draft, trainingOneTime: Number(e.target.value) })}
                   />
@@ -528,6 +572,7 @@ export default function Page() {
                 <InputRow label="Setup cost (one-time, Year 1, £)">
                   <TextInput
                     type="number"
+                    min={0}
                     value={draft.setupOneTime}
                     onChange={(e) => setDraft({ ...draft, setupOneTime: Number(e.target.value) })}
                   />
