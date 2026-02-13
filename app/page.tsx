@@ -584,6 +584,85 @@ export default function Page() {
 
         {/* Results */}
         <div className="lg:col-span-2 space-y-6">
+          <Card title="Assumptions & definitions">
+  <details className="text-sm" style={{ color: BRAND.muted }}>
+    <summary style={{ cursor: "pointer", color: BRAND.text, fontWeight: 700 }}>
+      How these numbers are calculated (click to expand)
+    </summary>
+
+    <div className="mt-3 space-y-3" style={{ color: BRAND.muted }}>
+      <div>
+        <div className="font-semibold" style={{ color: BRAND.text }}>
+          What ROI includes
+        </div>
+        <ul className="mt-1 list-disc pl-5">
+          <li>
+            <span className="font-semibold" style={{ color: BRAND.text }}>Supply cover savings</span> from reduced teacher absence
+          </li>
+          <li>
+            <span className="font-semibold" style={{ color: BRAND.text }}>Attrition savings</span> from fewer teacher replacements
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div className="font-semibold" style={{ color: BRAND.text }}>
+          What ROI does not include
+        </div>
+        <ul className="mt-1 list-disc pl-5">
+          <li>
+            Teacher time saved is shown as <span className="font-semibold" style={{ color: BRAND.text }}>capacity unlocked</span>, not payroll savings.
+          </li>
+          <li>
+            Teachers are still paid the same — time is reallocated to higher-quality teaching and student support.
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div className="font-semibold" style={{ color: BRAND.text }}>
+          Teacher adoption rate
+        </div>
+        <ul className="mt-1 list-disc pl-5">
+          <li>
+            Adoption rate represents the fraction of teachers actively using MySmartTeach.
+          </li>
+          <li>
+            Savings and time benefits scale with adoption (e.g. 0.6 = 60% of teachers).
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div className="font-semibold" style={{ color: BRAND.text }}>
+          Scenario presets
+        </div>
+        <ul className="mt-1 list-disc pl-5">
+          <li>
+            Conservative / Expected / Ambitious are illustrative assumptions. Use <span className="font-semibold" style={{ color: BRAND.text }}>Custom</span> for your own values.
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div className="font-semibold" style={{ color: BRAND.text }}>
+          “5% retention improvement” (key question)
+        </div>
+        <ul className="mt-1 list-disc pl-5">
+          <li>
+            Interpreted as <span className="font-semibold" style={{ color: BRAND.text }}>5% fewer leavers (relative)</span> among adopting teachers, multiplied by replacement cost.
+          </li>
+        </ul>
+      </div>
+
+      <div className="text-xs">
+        <span className="font-semibold" style={{ color: BRAND.text }}>Last updated:</span>{" "}
+        {new Date().toLocaleDateString("en-GB")}
+      </div>
+    </div>
+  </details>
+</Card>
+
           {/* KPI tiles */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <Card title="Annual subscription cost">
@@ -670,7 +749,7 @@ export default function Page() {
                 style={{ background: "#FBF7FF", border: `1px solid ${BRAND.border}` }}
               >
                 <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                  Financial impact of 5% retention improvement
+Financial impact if leavers drop by 5%
                 </div>
                 <div className="mt-3 rounded-xl px-3 py-3"
                      style={{ background: "#FFFFFF", border: `1px solid ${BRAND.border}` }}>
@@ -682,7 +761,7 @@ export default function Page() {
                   </div>
                 </div>
                 <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
-                  Interpreted as avoiding 5% of annual leavers × replacement cost.
+Interpreted as 5% fewer leavers (relative) among adopting teachers × replacement cost.
                 </div>
               </div>
             </div>
