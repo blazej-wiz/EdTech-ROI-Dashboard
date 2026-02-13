@@ -84,4 +84,56 @@ describe("calculate() baseline + invariants", () => {
     expect(vals[1]).toBeGreaterThanOrEqual(vals[0]);
     expect(vals[2]).toBeGreaterThanOrEqual(vals[1]);
   });
+  it("usage-based mode: if Gemini token prices are 0, annual AI cost should be 0", () => {
+    const o = calculate({
+      ...DEFAULTS,
+      aiCostingMode: "UsageBasedEstimate",
+      gbpPer1MInputTokens: 0,
+      gbpPer1MOutputTokens: 0,
+    });
+
+    closeTo(o.aiSubscriptionAnnual, 0);
+  });
+
+  it("usage-based mode: positive token prices => annual AI cost is positive (when volume > 0)", () => {
+    const o = calculate({
+      ...DEFAULTS,
+      aiCostingMode: "UsageBasedEstimate",
+      gbpPer1MInputTokens: 1,  // £1 per 1M input tokens
+      gbpPer1MOutputTokens: 2, // £2 per 1M output tokens
+      adoptionRate: 1,
+      students: 500,
+      examParticipationRate: 0.8,
+      assessmentsPerStudentPerYear: 6,
+      baseInputTokensPerAssessment: 1000,
+      baseOutputTokensPerAssessment: 500,
+      // simple weights that sum to 1
+      subjectWeightMaths: 0.5,
+      subjectWeightEnglish: 0.5,
+      subjectWeightScience: 0,
+      subjectWeightHumanities: 0,
+      subjectWeightOther: 0,
+      tokenMultMaths: 1.4,
+      tokenMultEnglish: 1.0,
+      tokenMultScience: 1.0,
+      tokenMultHumanities: 1.0,
+      tokenMultOther: 1.0,
+    });
+
+    expect(o.aiSubscriptionAnnual).toBeGreaterThan(0);
+  });
+
+  it("usage-based mode: if adoptionRate=0, annual AI cost should be 0 (no adopted students)", () => {
+    const o = calculate({
+      ...DEFAULTS,
+      aiCostingMode: "UsageBasedEstimate",
+      gbpPer1MInputTokens: 1,
+      gbpPer1MOutputTokens: 1,
+      adoptionRate: 0,
+    });
+
+    closeTo(o.aiSubscriptionAnnual, 0);
+  });
+
+
 });
