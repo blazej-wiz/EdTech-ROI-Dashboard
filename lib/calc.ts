@@ -1,23 +1,19 @@
 // lib/calc.ts
-export type ScenarioPreset =
-  | "Conservative"
-  | "Expected"
-  | "Ambitious"
-  | "Custom";
+export type ScenarioPreset = "Conservative" | "Expected" | "Ambitious" | "Custom";
 
 export type Inputs = {
   // Required
-  students: number; // Inputs!B5
-  teachersFTE: number; // Inputs!B6
-  adoptionRate: number; // Inputs!B7 (0..1)
+  students: number;      // Inputs!B5
+  teachersFTE: number;   // Inputs!B6
+  adoptionRate: number;  // Inputs!B7 (0..1)
 
   // Advanced
-  avgSalary: number; // Inputs!B10
-  weeksPerYear: number; // Inputs!B13
-  weeklyHoursTotal: number; // Inputs!B17
-  weeklyMarkingHours: number; // Inputs!B18
+  avgSalary: number;         // Inputs!B10
+  weeksPerYear: number;      // Inputs!B13
+  weeklyHoursTotal: number;  // Inputs!B17
+  weeklyMarkingHours: number;// Inputs!B18
 
-  preset: ScenarioPreset; // Inputs!B21
+  preset: ScenarioPreset;     // Inputs!B21
 
   // Custom-only inputs (Inputs!B24,B25,B30,B36)
   markingReductionCustom: number;
@@ -26,9 +22,9 @@ export type Inputs = {
   attritionReductionCustom: number;
 
   sickDaysPerTeacher: number; // Inputs!B28
-  supplyDailyCost: number; // Inputs!B31
-  attritionRate: number; // Inputs!B34
-  replacementCost: number; // Inputs!B37
+  supplyDailyCost: number;    // Inputs!B31
+  attritionRate: number;      // Inputs!B34
+  replacementCost: number;    // Inputs!B37
 
   // AI pricing (Inputs!J2,J3,J4,J5,J7,J8,J9)
   aiBasePrice: number;
@@ -40,7 +36,7 @@ export type Inputs = {
   tier3PricePerStudent: number;
 
   trainingOneTime: number; // Inputs!B41
-  setupOneTime: number; // Inputs!B42
+  setupOneTime: number;    // Inputs!B42
 };
 
 export type YearRow = {
@@ -53,34 +49,34 @@ export type YearRow = {
 };
 
 export type SensitivityPoint = {
-  label: string; // e.g. "10%"
-  rate: number; // 0.10
+  label: string;          // e.g. "10%"
+  rate: number;           // 0.10
   annualSupplySavings: number;
 };
 
 export type Outputs = {
-  adoptedStudents: number; // Inputs!B8
-  adoptedTeachers: number; // Inputs!B9
+  adoptedStudents: number;  // Inputs!B8
+  adoptedTeachers: number;  // Inputs!B9
 
   // Costs
   aiSubscriptionAnnual: number; // Inputs!B40
-  totalCostYear1: number; // Model!B38
+  totalCostYear1: number;       // Model!B38
 
   // Savings (cash)
-  annualSupplySavings: number; // Model!B26
-  annualAttritionSavings: number; // Model!B29
-  annualSavingsCash: number; // Model!B30
+  annualSupplySavings: number;     // Model!B26
+  annualAttritionSavings: number;  // Model!B29
+  annualSavingsCash: number;       // Model!B30
 
   // ROI (Year 1)
-  netBenefitYear1: number; // Model!B31
-  roiYear1: number | null; // Model!B32
+  netBenefitYear1: number;      // Model!B31
+  roiYear1: number | null;      // Model!B32
   paybackMonths: number | null; // Model!B33
-  breakEvenAiAnnual: number; // Model!B39
+  breakEvenAiAnnual: number;    // Model!B39
 
   // Educational value
-  weeklyHoursSavedPerTeacher: number; // Model!B21
-  annualHoursSavedTotal: number; // Model!B22
-  annualValueOfReallocatedTimeGBP: number; // Model!B24
+  weeklyHoursSavedPerTeacher: number;        // Model!B21
+  annualHoursSavedTotal: number;             // Model!B22
+  annualValueOfReallocatedTimeGBP: number;   // Model!B24
 
   // Per-student framing
   aiCostPerAdoptedStudent: number | null;
@@ -94,7 +90,7 @@ export type Outputs = {
 
   // NEW: Key-question outputs
   absenceSensitivity: SensitivityPoint[]; // 10/20/30% absence drop savings (supply cover)
-  retentionImpact5Annual: number; // annual £ savings at 5% attrition reduction
+  retentionImpact5Annual: number;         // annual £ savings at 5% attrition reduction
 };
 
 const ASSUMPTIONS: Record<
@@ -102,8 +98,8 @@ const ASSUMPTIONS: Record<
   { marking: number; other: number; sick: number; attrition: number }
 > = {
   Conservative: { marking: 0.25, other: 0.15, sick: 0.03, attrition: 0.01 },
-  Expected: { marking: 0.45, other: 0.25, sick: 0.05, attrition: 0.02 },
-  Ambitious: { marking: 0.8, other: 0.4, sick: 0.08, attrition: 0.04 },
+  Expected:     { marking: 0.45, other: 0.25, sick: 0.05, attrition: 0.02 },
+  Ambitious:    { marking: 0.8,  other: 0.4,  sick: 0.08, attrition: 0.04 },
 };
 
 export const DEFAULTS: Inputs = {
@@ -162,18 +158,17 @@ function resolveReductions(i: Inputs) {
   return ASSUMPTIONS[i.preset];
 }
 
-function computeAiSubscriptionAnnual(
-  i: Inputs,
-  adoptedStudents: number,
-  adoptedTeachers: number,
-) {
+function computeAiSubscriptionAnnual(i: Inputs, adoptedStudents: number, adoptedTeachers: number) {
   // Matches Inputs!B40 exactly:
   // = J2 + (B9 * J3) + IF(B8 > J5, ((J5-J4)*J8) + ((B8-J5)*J9), IF(B8 > J4, (B8-J4)*J8, 0))
   const base = nonneg(i.aiBasePrice);
   const perTeacher = nonneg(i.aiPricePerTeacher);
 
   const t1 = nonneg(i.tier1StudentLimit);
-  const t2 = nonneg(i.tier2StudentLimit);
+const t2Raw = nonneg(i.tier2StudentLimit);
+// Guardrail: tier2 must be >= tier1 (avoid negative pricing segments)
+const t2 = Math.max(t1, t2Raw);
+
 
   const p2 = nonneg(i.tier2PricePerStudent);
   const p3 = nonneg(i.tier3PricePerStudent);
@@ -203,16 +198,18 @@ export function calculate(raw: Partial<Inputs>): Outputs {
 
   const weeks = nonneg(i.weeksPerYear);
   const weeklyTotal = nonneg(i.weeklyHoursTotal);
-  const weeklyMarking = nonneg(i.weeklyMarkingHours);
-  const weeklyOther = Math.max(weeklyTotal - weeklyMarking, 0);
+  // Guardrail: marking hours cannot exceed total hours
+const weeklyMarkingRaw = nonneg(i.weeklyMarkingHours);
+const weeklyMarking = Math.min(weeklyMarkingRaw, weeklyTotal);
+const weeklyOther = Math.max(weeklyTotal - weeklyMarking, 0);
+
 
   const r = resolveReductions(i);
 
   // Model sheet logic
   const weeklyHoursSavedPerTeacher =
     weeklyMarking * r.marking + weeklyOther * r.other; // Model!B21
-  const annualHoursSavedTotal =
-    weeklyHoursSavedPerTeacher * weeks * adoptedTeachers; // Model!B22
+  const annualHoursSavedTotal = weeklyHoursSavedPerTeacher * weeks * adoptedTeachers; // Model!B22
 
   const annualHoursPerTeacher = weeks * weeklyTotal;
   const hourlyRate =
@@ -223,17 +220,13 @@ export function calculate(raw: Partial<Inputs>): Outputs {
   const annualSupplySavings =
     sickDaysSavedPerTeacher * adoptedTeachers * nonneg(i.supplyDailyCost); // Model!B26
 
-  const baselineLeavers = adoptedTeachers * clamp01(i.attritionRate); // Model!B27
-  const leaversAvoided = baselineLeavers * r.attrition; // Model!B28
+const baselineLeavers = teachers * clamp01(i.attritionRate); // baseline school-wide leavers
+const leaversAvoided = baselineLeavers * r.attrition * adoptionRate; // effect applies to adopting share
   const annualAttritionSavings = leaversAvoided * nonneg(i.replacementCost); // Model!B29
 
   const annualSavingsCash = annualSupplySavings + annualAttritionSavings; // Model!B30
 
-  const aiSubscriptionAnnual = computeAiSubscriptionAnnual(
-    i,
-    adoptedStudents,
-    adoptedTeachers,
-  ); // Inputs!B40
+  const aiSubscriptionAnnual = computeAiSubscriptionAnnual(i, adoptedStudents, adoptedTeachers); // Inputs!B40
   const totalCostYear1 =
     aiSubscriptionAnnual + nonneg(i.trainingOneTime) + nonneg(i.setupOneTime); // Model!B38
 
@@ -244,7 +237,7 @@ export function calculate(raw: Partial<Inputs>): Outputs {
 
   const breakEvenAiAnnual = Math.max(
     0,
-    annualSavingsCash - nonneg(i.trainingOneTime) - nonneg(i.setupOneTime),
+    annualSavingsCash - nonneg(i.trainingOneTime) - nonneg(i.setupOneTime)
   ); // Model!B39
 
   const aiCostPerAdoptedStudent =
@@ -263,9 +256,7 @@ export function calculate(raw: Partial<Inputs>): Outputs {
   for (let year = 1; year <= 5; year++) {
     const costs =
       year === 1
-        ? aiSubscriptionAnnual +
-          nonneg(i.trainingOneTime) +
-          nonneg(i.setupOneTime)
+        ? aiSubscriptionAnnual + nonneg(i.trainingOneTime) + nonneg(i.setupOneTime)
         : aiSubscriptionAnnual;
 
     const savings = annualSavingsCash;
@@ -276,8 +267,7 @@ export function calculate(raw: Partial<Inputs>): Outputs {
     cumulativeNet += netBenefit;
 
     // Projection5Y row 13: cumulative ROI % = (cumSavings - cumCosts) / cumCosts
-    const cumulativeRoi =
-      cumCosts > 0 ? (cumSavings - cumCosts) / cumCosts : null;
+    const cumulativeRoi = cumCosts > 0 ? (cumSavings - cumCosts) / cumCosts : null;
 
     projection5y.push({
       year,
@@ -294,14 +284,12 @@ export function calculate(raw: Partial<Inputs>): Outputs {
 
   // NEW: Key questions (independent of preset reductions)
   // 1) "If absence drops by 10% / 20% / 30%, how much do we save?"
-  // This is purely supply cover savings: sickDaysPerTeacher * adoptedTeachers * supplyDailyCost * dropRate
+// This is purely supply cover savings among adopting teachers:
+// sickDaysPerTeacher * adoptedTeachers * supplyDailyCost * dropRate
   const absenceRates = [0.1, 0.2, 0.3];
   const absenceSensitivity: SensitivityPoint[] = absenceRates.map((rate) => {
     const annualSupplySavingsAtRate =
-      nonneg(i.sickDaysPerTeacher) *
-      rate *
-      adoptedTeachers *
-      nonneg(i.supplyDailyCost);
+nonneg(i.sickDaysPerTeacher) * rate * adoptedTeachers * nonneg(i.supplyDailyCost);
     return {
       label: `${Math.round(rate * 100)}%`,
       rate,
@@ -309,10 +297,12 @@ export function calculate(raw: Partial<Inputs>): Outputs {
     };
   });
 
-  // 2) "Financial impact by just 5% retention"
-  // Interpret as: 5% attrition reduction (avoid 5% of leavers) * replacementCost
+  // 2) "Financial impact if attrition (leavers) drops by 5% (relative)"
+// i.e., avoid 5% of baseline leavers × replacement cost
+
   const retentionImpact5Annual =
-    baselineLeavers * 0.05 * nonneg(i.replacementCost);
+  baselineLeavers * 0.05 * adoptionRate * nonneg(i.replacementCost);
+
 
   return {
     adoptedStudents,
