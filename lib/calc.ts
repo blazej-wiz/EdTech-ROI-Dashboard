@@ -1,5 +1,8 @@
 // lib/calc.ts
 export type ScenarioPreset = "Conservative" | "Expected" | "Ambitious" | "Custom";
+export type AiCostingMode = "SimplePricing" | "UsageBasedEstimate";
+export type SubjectPreset = "MostlyHumanities" | "Mixed" | "MostlySTEM";
+
 
 export type Inputs = {
   // Required
@@ -37,6 +40,40 @@ export type Inputs = {
 
   trainingOneTime: number; // Inputs!B41
   setupOneTime: number;    // Inputs!B42
+
+    // AI costing mode
+  aiCostingMode: AiCostingMode; // new
+
+  // Usage-based AI costing (estimated; Gemini-aligned)
+
+
+  // Token baselines per assessment (estimated)
+  baseInputTokensPerAssessment: number;
+  baseOutputTokensPerAssessment: number;
+
+  // Subject token multipliers (estimated)
+  tokenMultMaths: number;
+  tokenMultEnglish: number;
+  tokenMultScience: number;
+  tokenMultHumanities: number;
+  tokenMultOther: number;
+
+  // Gemini pricing (GBP per 1M tokens)
+  gbpPer1MInputTokens: number;
+  gbpPer1MOutputTokens: number;
+
+    // Commercial pricing (MySmartTeach)
+  licenceFeeAnnual: number; // annual MySmartTeach licence (£)
+
+  // School-facing usage inputs (simple)
+  examParticipationRate: number;         // 0..1
+  assessmentsPerStudentPerYear: number;  // 1..20
+  subjectPreset: SubjectPreset;          // simple dropdown
+    // Internal: preset -> subject weights
+  presetHumanitiesWeight: number; // e.g. 0.65 for MostlyHumanities
+  presetStemWeight: number;       // e.g. 0.65 for MostlySTEM
+
+
 };
 
 export type YearRow = {
@@ -62,6 +99,18 @@ export type Outputs = {
   aiSubscriptionAnnual: number; // Inputs!B40
   totalCostYear1: number;       // Model!B38
 
+    // Commercial / unit-economics breakdown (mainly for internal view)
+  licenceFeeAnnual: number;        // MySmartTeach licence price (annual)
+  aiInferenceCostAnnual: number;   // Estimated Gemini token cost (annual, usage-based)
+
+  aiCostingMode: AiCostingMode;
+
+  // Usage-based breakdown (only meaningful when aiCostingMode === "UsageBasedEstimate")
+  estimatedAssessmentsAnnual: number;
+  estimatedInputTokensAnnual: number;
+  estimatedOutputTokensAnnual: number;
+
+
   // Savings (cash)
   annualSupplySavings: number;     // Model!B26
   annualAttritionSavings: number;  // Model!B29
@@ -71,7 +120,8 @@ export type Outputs = {
   netBenefitYear1: number;      // Model!B31
   roiYear1: number | null;      // Model!B32
   paybackMonths: number | null; // Model!B33
-  breakEvenAiAnnual: number;    // Model!B39
+  breakEvenAiAnnual: number;  
+   // Model!B39
 
   // Educational value
   weeklyHoursSavedPerTeacher: number;        // Model!B21
@@ -131,6 +181,36 @@ export const DEFAULTS: Inputs = {
   tier2PricePerStudent: 1,
   tier3PricePerStudent: 2,
 
+  aiCostingMode: "SimplePricing",
+
+  examParticipationRate: 0.8,
+  assessmentsPerStudentPerYear: 6,
+
+
+
+  baseInputTokensPerAssessment: 1500,
+  baseOutputTokensPerAssessment: 900,
+
+  tokenMultMaths: 1.4,
+  tokenMultEnglish: 1.0,
+  tokenMultScience: 1.2,
+  tokenMultHumanities: 1.1,
+  tokenMultOther: 1.0,
+
+  // Gemini API list pricing (Gemini 2.0 Flash) converted to GBP using ~0.734 GBP/USD (Feb 13, 2026)
+  gbpPer1MInputTokens: 0.0734,   // set to real values once confirmed
+  gbpPer1MOutputTokens: 0.2936,  // set to real values once confirmed
+
+
+    licenceFeeAnnual: 6000, // placeholder; internal can change
+
+
+  subjectPreset: "Mixed",
+
+  presetHumanitiesWeight: 0.65,
+  presetStemWeight: 0.65,
+
+
   trainingOneTime: 2000,
   setupOneTime: 750,
 };
@@ -141,6 +221,13 @@ function safe(n: number) {
 function nonneg(n: number) {
   return Math.max(0, safe(n));
 }
+
+function clampInt(n: number, min: number, max: number) {
+  const v = Math.round(nonneg(n));
+  return Math.max(min, Math.min(max, v));
+}
+
+
 function clamp01(n: number) {
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(1, n));
@@ -158,32 +245,70 @@ function resolveReductions(i: Inputs) {
   return ASSUMPTIONS[i.preset];
 }
 
-function computeAiSubscriptionAnnual(i: Inputs, adoptedStudents: number, adoptedTeachers: number) {
-  // Matches Inputs!B40 exactly:
-  // = J2 + (B9 * J3) + IF(B8 > J5, ((J5-J4)*J8) + ((B8-J5)*J9), IF(B8 > J4, (B8-J4)*J8, 0))
-  const base = nonneg(i.aiBasePrice);
-  const perTeacher = nonneg(i.aiPricePerTeacher);
-
-  const t1 = nonneg(i.tier1StudentLimit);
-const t2Raw = nonneg(i.tier2StudentLimit);
-// Guardrail: tier2 must be >= tier1 (avoid negative pricing segments)
-const t2 = Math.max(t1, t2Raw);
 
 
-  const p2 = nonneg(i.tier2PricePerStudent);
-  const p3 = nonneg(i.tier3PricePerStudent);
 
-  let studentPart = 0;
-  if (adoptedStudents > t2) {
-    studentPart = (t2 - t1) * p2 + (adoptedStudents - t2) * p3;
-  } else if (adoptedStudents > t1) {
-    studentPart = (adoptedStudents - t1) * p2;
+
+
+
+
+
+type SubjectWeights = {
+  maths: number;
+  english: number;
+  science: number;
+  humanities: number;
+  other: number;
+};
+
+function presetToWeights(
+  preset: SubjectPreset,
+  humanitiesHeavy: number,
+  stemHeavy: number
+): SubjectWeights {
+  // guardrails
+  const hum = clamp01(humanitiesHeavy);
+  const stem = clamp01(stemHeavy);
+
+  let humanitiesTotal = 0.5;
+  let stemTotal = 0.5;
+
+  if (preset === "MostlyHumanities") {
+    humanitiesTotal = hum || 0.65;
+    stemTotal = 1 - humanitiesTotal;
+  } else if (preset === "MostlySTEM") {
+    stemTotal = stem || 0.65;
+    humanitiesTotal = 1 - stemTotal;
   } else {
-    studentPart = 0;
+    humanitiesTotal = 0.5;
+    stemTotal = 0.5;
   }
 
-  return base + adoptedTeachers * perTeacher + studentPart;
+  // Split within buckets (simple, defensible)
+  const english = humanitiesTotal * 0.55;
+  const humanities = humanitiesTotal * 0.35;
+  const otherFromHum = humanitiesTotal * 0.10;
+
+  const maths = stemTotal * 0.45;
+  const science = stemTotal * 0.45;
+  const otherFromStem = stemTotal * 0.10;
+
+  const other = otherFromHum + otherFromStem;
+
+  // small numeric safety: normalize to sum to 1
+  const sum = maths + english + science + humanities + other;
+  if (sum <= 0) {
+    return { maths: 0.2, english: 0.2, science: 0.2, humanities: 0.2, other: 0.2 };
+  }
+  return {
+    maths: maths / sum,
+    english: english / sum,
+    science: science / sum,
+    humanities: humanities / sum,
+    other: other / sum,
+  };
 }
+
 
 export function calculate(raw: Partial<Inputs>): Outputs {
   const i: Inputs = { ...DEFAULTS, ...raw };
@@ -195,6 +320,56 @@ export function calculate(raw: Partial<Inputs>): Outputs {
   // Inputs!B8 and Inputs!B9
   const adoptedStudents = students * adoptionRate;
   const adoptedTeachers = teachers * adoptionRate;
+
+    const participation = clamp01(i.examParticipationRate);
+  const assessmentsPerStudent = clampInt(i.assessmentsPerStudentPerYear, 1, 20);
+
+  const estimatedAssessmentsAnnual =
+    adoptedStudents * participation * assessmentsPerStudent;
+
+
+    const weights = presetToWeights(
+    i.subjectPreset,
+    nonneg(i.presetHumanitiesWeight),
+    nonneg(i.presetStemWeight)
+  );
+
+    const multMaths = nonneg(i.tokenMultMaths) || 1;
+  const multEnglish = nonneg(i.tokenMultEnglish) || 1;
+  const multScience = nonneg(i.tokenMultScience) || 1;
+  const multHumanities = nonneg(i.tokenMultHumanities) || 1;
+  const multOther = nonneg(i.tokenMultOther) || 1;
+
+  const weightedMult =
+    weights.maths * multMaths +
+    weights.english * multEnglish +
+    weights.science * multScience +
+    weights.humanities * multHumanities +
+    weights.other * multOther;
+
+  const weightedMultSafe = weightedMult > 0 ? weightedMult : 1;
+
+
+  const baseIn = nonneg(i.baseInputTokensPerAssessment);
+  const baseOut = nonneg(i.baseOutputTokensPerAssessment);
+
+  const estimatedInputTokensAnnual = estimatedAssessmentsAnnual * baseIn * weightedMultSafe;
+const estimatedOutputTokensAnnual = estimatedAssessmentsAnnual * baseOut * weightedMultSafe;
+
+
+    const gbpPer1MIn = nonneg(i.gbpPer1MInputTokens);
+  const gbpPer1MOut = nonneg(i.gbpPer1MOutputTokens);
+
+  const aiInferenceCostAnnual =
+    (estimatedInputTokensAnnual / 1_000_000) * gbpPer1MIn +
+    (estimatedOutputTokensAnnual / 1_000_000) * gbpPer1MOut;
+
+      const licenceFeeAnnual = nonneg(i.licenceFeeAnnual);
+
+  // You choose how costing mode behaves:
+  // - SimplePricing: treat licence fee as the total annual platform cost
+  // - UsageBasedEstimate: licence fee + inference cost (more honest for internal view)
+
 
   const weeks = nonneg(i.weeksPerYear);
   const weeklyTotal = nonneg(i.weeklyHoursTotal);
@@ -226,9 +401,13 @@ const leaversAvoided = baselineLeavers * r.attrition * adoptionRate; // effect a
 
   const annualSavingsCash = annualSupplySavings + annualAttritionSavings; // Model!B30
 
-  const aiSubscriptionAnnual = computeAiSubscriptionAnnual(i, adoptedStudents, adoptedTeachers); // Inputs!B40
+
+  
+
+const aiSubscriptionAnnual = nonneg(i.licenceFeeAnnual);
+
   const totalCostYear1 =
-    aiSubscriptionAnnual + nonneg(i.trainingOneTime) + nonneg(i.setupOneTime); // Model!B38
+    aiSubscriptionAnnual + nonneg(i.trainingOneTime) + nonneg(i.setupOneTime);
 
   const netBenefitYear1 = annualSavingsCash - totalCostYear1; // Model!B31
   const roiYear1 = totalCostYear1 > 0 ? netBenefitYear1 / totalCostYear1 : null; // Model!B32
@@ -314,6 +493,16 @@ nonneg(i.sickDaysPerTeacher) * rate * adoptedTeachers * nonneg(i.supplyDailyCost
     annualSupplySavings,
     annualAttritionSavings,
     annualSavingsCash,
+
+    aiCostingMode: i.aiCostingMode,
+    estimatedAssessmentsAnnual,
+estimatedInputTokensAnnual,
+estimatedOutputTokensAnnual,
+
+   licenceFeeAnnual,
+   aiInferenceCostAnnual,
+    
+
 
     netBenefitYear1,
     roiYear1,

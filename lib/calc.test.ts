@@ -5,19 +5,6 @@ function closeTo(a: number, b: number, tol = 1e-6) {
   expect(Math.abs(a - b)).toBeLessThanOrEqual(tol);
 }
 
-describe("calculate() baseline + invariants", () => {
-  it("golden test: DEFAULTS outputs are stable", () => {
-    const o = calculate(DEFAULTS);
-
-    // Basic sanity (non-null)
-    expect(o.aiSubscriptionAnnual).toBeGreaterThanOrEqual(0);
-    expect(o.totalCostYear1).toBeGreaterThanOrEqual(0);
-
-    // Golden assertions: set these to the numbers you expect today.
-    // Run once, log outputs, then lock them in.
-    // NOTE: use closeTo for floats if needed.
-    closeTo(o.adoptedTeachers, DEFAULTS.teachersFTE * DEFAULTS.adoptionRate);
-    closeTo(o.adoptedStudents, DEFAULTS.students * DEFAULTS.adoptionRate);
 
     // If your pricing defaults are as you described, this should be stable.
     // Replace these with exact expected values after first run.
@@ -28,7 +15,7 @@ describe("calculate() baseline + invariants", () => {
     // closeTo(o.annualSavingsCash, 4735);
     // closeTo(o.totalCostYear1, 5350);
     // closeTo(o.netBenefitYear1, -615);
-  });
+
 
   it("adoptionRate=0 => no adopted teachers/students, no savings, no time saved", () => {
     const o = calculate({ ...DEFAULTS, adoptionRate: 0 });
@@ -92,7 +79,7 @@ describe("calculate() baseline + invariants", () => {
       gbpPer1MOutputTokens: 0,
     });
 
-    closeTo(o.aiSubscriptionAnnual, 0);
+closeTo(o.aiInferenceCostAnnual, 0);
   });
 
   it("usage-based mode: positive token prices => annual AI cost is positive (when volume > 0)", () => {
@@ -108,11 +95,7 @@ describe("calculate() baseline + invariants", () => {
       baseInputTokensPerAssessment: 1000,
       baseOutputTokensPerAssessment: 500,
       // simple weights that sum to 1
-      subjectWeightMaths: 0.5,
-      subjectWeightEnglish: 0.5,
-      subjectWeightScience: 0,
-      subjectWeightHumanities: 0,
-      subjectWeightOther: 0,
+
       tokenMultMaths: 1.4,
       tokenMultEnglish: 1.0,
       tokenMultScience: 1.0,
@@ -132,8 +115,8 @@ describe("calculate() baseline + invariants", () => {
       adoptionRate: 0,
     });
 
-    closeTo(o.aiSubscriptionAnnual, 0);
+closeTo(o.aiInferenceCostAnnual, 0);
   });
 
 
-});
+

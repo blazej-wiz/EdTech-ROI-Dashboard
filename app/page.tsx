@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { calculate, DEFAULTS, Inputs, ScenarioPreset } from "@/lib/calc";
+import { calculate, DEFAULTS, Inputs, ScenarioPreset, AiCostingMode } from "@/lib/calc";
 import {
   LineChart,
   Line,
@@ -150,6 +150,9 @@ function shallowEqual(a: any, b: any) {
 
 export default function Page() {
   // Draft inputs: user edits here
+
+  const [viewMode, setViewMode] = useState<"school" | "internal">("school");
+
   const [draft, setDraft] = useState<Inputs>(DEFAULTS);
   // Applied inputs: used in calculation (only updates on Calculate)
   const [applied, setApplied] = useState<Inputs>(DEFAULTS);
@@ -263,7 +266,7 @@ export default function Page() {
                 background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.indigo} 55%, ${BRAND.purple} 100%)`,
               }}
             />
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl font-bold tracking-tight" style={{ color: BRAND.text }}>
                 My Smart Teach ROI Dashboard
               </h1>
@@ -272,6 +275,34 @@ export default function Page() {
                 <span className="font-semibold">attrition reduction</span>. Teacher time is shown separately as
                 educational value and £-equivalent value.
               </p>
+
+              <div
+                className="mt-3 inline-flex w-fit items-center gap-2 rounded-full p-1"
+                style={{ background: "#fff", border: `1px solid ${BRAND.border}` }}
+              >
+                <button
+                  className="rounded-full px-3 py-1 text-xs font-bold transition"
+                  style={{
+                    cursor: "pointer",
+                    background: viewMode === "school" ? "#EEF2FF" : "transparent",
+                    color: BRAND.text,
+                  }}
+                  onClick={() => setViewMode("school")}
+                >
+                  School view
+                </button>
+                <button
+                  className="rounded-full px-3 py-1 text-xs font-bold transition"
+                  style={{
+                    cursor: "pointer",
+                    background: viewMode === "internal" ? "#EEF2FF" : "transparent",
+                    color: BRAND.text,
+                  }}
+                  onClick={() => setViewMode("internal")}
+                >
+                  MySmartTeach internal
+                </button>
+              </div>
             </div>
           </div>
 
@@ -301,6 +332,7 @@ export default function Page() {
         </div>
       </header>
 
+
       <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-10 lg:grid-cols-3">
         {/* Inputs */}
         <div className="lg:col-span-1 space-y-4">
@@ -327,20 +359,20 @@ export default function Page() {
               </button>
             </div>
 
-{/* Guardrail warnings (non-blocking) */}
-{(draft.adoptionRate < 0 || draft.adoptionRate > 1 || draft.weeklyMarkingHours > draft.weeklyHoursTotal) && (
-  <div
-    className="rounded-xl px-3 py-2 text-xs font-semibold"
-    style={{ background: "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA" }}
-  >
-    {draft.adoptionRate < 0 || draft.adoptionRate > 1 ? (
-      <div>Teacher adoption rate should be between 0 and 1. We’ll clamp it when you click Calculate.</div>
-    ) : null}
-    {draft.weeklyMarkingHours > draft.weeklyHoursTotal ? (
-      <div>Marking hours can’t exceed total weekly hours. We’ll cap marking at total hours.</div>
-    ) : null}
-  </div>
-)}
+            {/* Guardrail warnings (non-blocking) */}
+            {(draft.adoptionRate < 0 || draft.adoptionRate > 1 || draft.weeklyMarkingHours > draft.weeklyHoursTotal) && (
+              <div
+                className="rounded-xl px-3 py-2 text-xs font-semibold"
+                style={{ background: "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA" }}
+              >
+                {draft.adoptionRate < 0 || draft.adoptionRate > 1 ? (
+                  <div>Teacher adoption rate should be between 0 and 1. We’ll clamp it when you click Calculate.</div>
+                ) : null}
+                {draft.weeklyMarkingHours > draft.weeklyHoursTotal ? (
+                  <div>Marking hours can’t exceed total weekly hours. We’ll cap marking at total hours.</div>
+                ) : null}
+              </div>
+            )}
 
             <div className="mt-4 space-y-4">
               <InputRow label="Number of teachers (FTE)" hint="Required">
@@ -361,7 +393,7 @@ export default function Page() {
                 />
               </InputRow>
 
-<InputRow label="Teacher adoption rate" hint="Required (0.6 = 60% of teachers using the tool)">
+              <InputRow label="Teacher adoption rate" hint="Required (0.6 = 60% of teachers using the tool)">
                 <TextInput
                   type="number"
                   min={0}
@@ -391,24 +423,24 @@ export default function Page() {
                   cursor: 'pointer',
                 }}
                 onClick={() => {
-  const sanitized: Inputs = {
-    ...draft,
-    adoptionRate: Math.max(0, Math.min(1, Number.isFinite(draft.adoptionRate) ? draft.adoptionRate : 0)),
-    weeklyHoursTotal: Math.max(0, Number.isFinite(draft.weeklyHoursTotal) ? draft.weeklyHoursTotal : 0),
-    weeklyMarkingHours: Math.max(
-      0,
-      Math.min(
-        Number.isFinite(draft.weeklyMarkingHours) ? draft.weeklyMarkingHours : 0,
-        Math.max(0, Number.isFinite(draft.weeklyHoursTotal) ? draft.weeklyHoursTotal : 0)
-      )
-    ),
-  };
+                  const sanitized: Inputs = {
+                    ...draft,
+                    adoptionRate: Math.max(0, Math.min(1, Number.isFinite(draft.adoptionRate) ? draft.adoptionRate : 0)),
+                    weeklyHoursTotal: Math.max(0, Number.isFinite(draft.weeklyHoursTotal) ? draft.weeklyHoursTotal : 0),
+                    weeklyMarkingHours: Math.max(
+                      0,
+                      Math.min(
+                        Number.isFinite(draft.weeklyMarkingHours) ? draft.weeklyMarkingHours : 0,
+                        Math.max(0, Number.isFinite(draft.weeklyHoursTotal) ? draft.weeklyHoursTotal : 0)
+                      )
+                    ),
+                  };
 
-  setApplied(sanitized);
-  // Optional: also update draft so the UI reflects what was applied
-  setDraft(sanitized);
-  stopRoiAnimation(true);
-}}
+                  setApplied(sanitized);
+                  // Optional: also update draft so the UI reflects what was applied
+                  setDraft(sanitized);
+                  stopRoiAnimation(true);
+                }}
 
               >
                 Calculate
@@ -437,6 +469,228 @@ export default function Page() {
                 <div className="text-sm font-bold" style={{ color: BRAND.text }}>
                   Advanced inputs
                 </div>
+                {viewMode === "school" && (
+                  <>
+                    <div className="text-sm font-bold" style={{ color: BRAND.text }}>
+                      Usage assumptions (simple)
+                    </div>
+
+                    <InputRow
+                      label="Exam participation rate"
+                      hint="Rough estimate: % of students whose assessments use MySmartTeach (e.g. 80%)."
+                    >
+                      <TextInput
+                        type="number"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={draft.examParticipationRate}
+                        onChange={(e) =>
+                          setDraft({ ...draft, examParticipationRate: Number(e.target.value) })
+                        }
+                      />
+                    </InputRow>
+
+                    <InputRow
+                      label="Assessments per student per year"
+                      hint="Keep it simple (typical range 1–20)."
+                    >
+                      <TextInput
+                        type="number"
+                        min={1}
+                        max={20}
+                        step={1}
+                        value={draft.assessmentsPerStudentPerYear}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            assessmentsPerStudentPerYear: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </InputRow>
+
+                    <InputRow
+                      label="Subject mix"
+                      hint="High-level subject split affects estimated AI usage (no detailed weighting needed)."
+                    >
+                      <SelectInput
+                        value={draft.subjectPreset}
+                        onChange={(e) =>
+                          setDraft({ ...draft, subjectPreset: e.target.value as any })
+                        }
+                      >
+                        <option value="MostlyHumanities">Mostly humanities</option>
+                        <option value="Mixed">Mixed</option>
+                        <option value="MostlySTEM">Mostly STEM</option>
+                      </SelectInput>
+                    </InputRow>
+                  </>
+                )}
+
+
+                {viewMode === "internal" && (
+                  <InputRow
+                    label="AI costing mode"
+                    hint="Simple pricing = your current tiered subscription. Usage-based = estimated Gemini token cost (calibrated later with real usage)."
+                  >
+                    <SelectInput
+                      value={draft.aiCostingMode}
+                      onChange={(e) => setDraft({ ...draft, aiCostingMode: e.target.value as AiCostingMode })}
+                    >
+                      <option value="SimplePricing">Simple pricing (tiered)</option>
+                      <option value="UsageBasedEstimate">Usage-based (estimated, Gemini-aligned)</option>
+                    </SelectInput>
+                  </InputRow>
+                )}
+                {viewMode === "internal" && (
+                  <InputRow
+                    label="MySmartTeach licence fee (annual, £)"
+                    hint="Commercial price schools pay. Hidden in School view."
+                  >
+                    <TextInput
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={draft.licenceFeeAnnual}
+                      onChange={(e) =>
+                        setDraft({ ...draft, licenceFeeAnnual: Number(e.target.value) })
+                      }
+                    />
+                  </InputRow>
+                )}
+
+
+                {viewMode === "internal" && draft.aiCostingMode === "UsageBasedEstimate" && (
+                  <div
+                    className="space-y-4 rounded-2xl p-4"
+                    style={{ background: "#F8FAFF", border: `1px solid ${BRAND.border}` }}
+                  >
+                    <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+                      Usage-based AI cost (estimated)
+                    </div>
+
+                    <div className="text-xs" style={{ color: BRAND.muted }}>
+                      This estimates annual Gemini token cost. Replace estimates with real usage logs after launch.
+                    </div>
+
+                    <div className="text-sm font-bold" style={{ color: BRAND.text }}>
+                      Token assumptions (per assessment)
+                    </div>
+
+                    <InputRow label="Base input tokens per assessment">
+                      <TextInput
+                        type="number"
+                        min={0}
+                        step={50}
+                        value={draft.baseInputTokensPerAssessment}
+                        onChange={(e) =>
+                          setDraft({ ...draft, baseInputTokensPerAssessment: Number(e.target.value) })
+                        }
+                      />
+                    </InputRow>
+
+                    <InputRow label="Base output tokens per assessment">
+                      <TextInput
+                        type="number"
+                        min={0}
+                        step={50}
+                        value={draft.baseOutputTokensPerAssessment}
+                        onChange={(e) =>
+                          setDraft({ ...draft, baseOutputTokensPerAssessment: Number(e.target.value) })
+                        }
+                      />
+                    </InputRow>
+
+                    <div className="text-sm font-bold" style={{ color: BRAND.text }}>
+                      Subject token multipliers
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <InputRow label="Maths multiplier">
+                        <TextInput
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={draft.tokenMultMaths}
+                          onChange={(e) => setDraft({ ...draft, tokenMultMaths: Number(e.target.value) })}
+                        />
+                      </InputRow>
+
+                      <InputRow label="English multiplier">
+                        <TextInput
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={draft.tokenMultEnglish}
+                          onChange={(e) => setDraft({ ...draft, tokenMultEnglish: Number(e.target.value) })}
+                        />
+                      </InputRow>
+
+                      <InputRow label="Science multiplier">
+                        <TextInput
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={draft.tokenMultScience}
+                          onChange={(e) => setDraft({ ...draft, tokenMultScience: Number(e.target.value) })}
+                        />
+                      </InputRow>
+
+                      <InputRow label="Humanities multiplier">
+                        <TextInput
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={draft.tokenMultHumanities}
+                          onChange={(e) =>
+                            setDraft({ ...draft, tokenMultHumanities: Number(e.target.value) })
+                          }
+                        />
+                      </InputRow>
+
+                      <InputRow label="Other multiplier">
+                        <TextInput
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={draft.tokenMultOther}
+                          onChange={(e) => setDraft({ ...draft, tokenMultOther: Number(e.target.value) })}
+                        />
+                      </InputRow>
+                    </div>
+
+                    <div className="text-sm font-bold" style={{ color: BRAND.text }}>
+                      Gemini pricing (GBP per 1M tokens)
+                    </div>
+
+                    <InputRow label="£ per 1M input tokens">
+                      <TextInput
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={draft.gbpPer1MInputTokens}
+                        onChange={(e) =>
+                          setDraft({ ...draft, gbpPer1MInputTokens: Number(e.target.value) })
+                        }
+                      />
+                    </InputRow>
+
+                    <InputRow label="£ per 1M output tokens">
+                      <TextInput
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={draft.gbpPer1MOutputTokens}
+                        onChange={(e) =>
+                          setDraft({ ...draft, gbpPer1MOutputTokens: Number(e.target.value) })
+                        }
+                      />
+                    </InputRow>
+                  </div>
+                )}
+
+
 
                 <InputRow label="Average teacher salary (£/year)" hint="Used for £-equivalent value of reallocated time">
                   <TextInput
@@ -584,95 +838,146 @@ export default function Page() {
 
         {/* Results */}
         <div className="lg:col-span-2 space-y-6">
+
           <Card title="Assumptions & definitions">
-  <details className="text-sm" style={{ color: BRAND.muted }}>
-    <summary style={{ cursor: "pointer", color: BRAND.text, fontWeight: 700 }}>
-      How these numbers are calculated (click to expand)
-    </summary>
+            <details className="text-sm" style={{ color: BRAND.muted }}>
+              <summary style={{ cursor: "pointer", color: BRAND.text, fontWeight: 700 }}>
+                How these numbers are calculated (click to expand)
+              </summary>
 
-    <div className="mt-3 space-y-3" style={{ color: BRAND.muted }}>
-      <div>
-        <div className="font-semibold" style={{ color: BRAND.text }}>
-          What ROI includes
-        </div>
-        <ul className="mt-1 list-disc pl-5">
-          <li>
-            <span className="font-semibold" style={{ color: BRAND.text }}>Supply cover savings</span> from reduced teacher absence
-          </li>
-          <li>
-            <span className="font-semibold" style={{ color: BRAND.text }}>Attrition savings</span> from fewer teacher replacements
-          </li>
-        </ul>
-      </div>
+              <div className="mt-3 space-y-3" style={{ color: BRAND.muted }}>
+                <div>
+                  <div className="font-semibold" style={{ color: BRAND.text }}>
+                    What ROI includes
+                  </div>
+                  <ul className="mt-1 list-disc pl-5">
+                    <li>
+                      <span className="font-semibold" style={{ color: BRAND.text }}>Supply cover savings</span> from reduced teacher absence
+                    </li>
+                    <li>
+                      <span className="font-semibold" style={{ color: BRAND.text }}>Attrition savings</span> from fewer teacher replacements
+                    </li>
+                  </ul>
+                </div>
 
-      <div>
-        <div className="font-semibold" style={{ color: BRAND.text }}>
-          What ROI does not include
-        </div>
-        <ul className="mt-1 list-disc pl-5">
-          <li>
-            Teacher time saved is shown as <span className="font-semibold" style={{ color: BRAND.text }}>capacity unlocked</span>, not payroll savings.
-          </li>
-          <li>
-            Teachers are still paid the same — time is reallocated to higher-quality teaching and student support.
-          </li>
-        </ul>
-      </div>
+                <div>
+                  <div className="font-semibold" style={{ color: BRAND.text }}>
+                    What ROI does not include
+                  </div>
+                  <ul className="mt-1 list-disc pl-5">
+                    <li>
+                      Teacher time saved is shown as <span className="font-semibold" style={{ color: BRAND.text }}>capacity unlocked</span>, not payroll savings.
+                    </li>
+                    <li>
+                      Teachers are still paid the same — time is reallocated to higher-quality teaching and student support.
+                    </li>
+                  </ul>
+                </div>
 
-      <div>
-        <div className="font-semibold" style={{ color: BRAND.text }}>
-          Teacher adoption rate
-        </div>
-        <ul className="mt-1 list-disc pl-5">
-          <li>
-            Adoption rate represents the fraction of teachers actively using MySmartTeach.
-          </li>
-          <li>
-            Savings and time benefits scale with adoption (e.g. 0.6 = 60% of teachers).
-          </li>
-        </ul>
-      </div>
+                <div>
+                  <div className="font-semibold" style={{ color: BRAND.text }}>
+                    Teacher adoption rate
+                  </div>
+                  <ul className="mt-1 list-disc pl-5">
+                    <li>
+                      Adoption rate represents the fraction of teachers actively using MySmartTeach.
+                    </li>
+                    <li>
+                      Savings and time benefits scale with adoption (e.g. 0.6 = 60% of teachers).
+                    </li>
+                  </ul>
+                </div>
 
-      <div>
-        <div className="font-semibold" style={{ color: BRAND.text }}>
-          Scenario presets
-        </div>
-        <ul className="mt-1 list-disc pl-5">
-          <li>
-            Conservative / Expected / Ambitious are illustrative assumptions. Use <span className="font-semibold" style={{ color: BRAND.text }}>Custom</span> for your own values.
-          </li>
-        </ul>
-      </div>
+                <div>
+                  <div className="font-semibold" style={{ color: BRAND.text }}>
+                    Scenario presets
+                  </div>
+                  <ul className="mt-1 list-disc pl-5">
+                    <li>
+                      Conservative / Expected / Ambitious are illustrative assumptions. Use <span className="font-semibold" style={{ color: BRAND.text }}>Custom</span> for your own values.
+                    </li>
+                  </ul>
+                </div>
 
-      <div>
-        <div className="font-semibold" style={{ color: BRAND.text }}>
-          “5% retention improvement” (key question)
-        </div>
-        <ul className="mt-1 list-disc pl-5">
-          <li>
-            Interpreted as <span className="font-semibold" style={{ color: BRAND.text }}>5% fewer leavers (relative)</span> among adopting teachers, multiplied by replacement cost.
-          </li>
-        </ul>
-      </div>
+                <div>
+                  <div className="font-semibold" style={{ color: BRAND.text }}>
+                    “5% retention improvement” (key question)
+                  </div>
+                  <ul className="mt-1 list-disc pl-5">
+                    <li>
+                      Interpreted as <span className="font-semibold" style={{ color: BRAND.text }}>5% fewer leavers (relative)</span> among adopting teachers, multiplied by replacement cost.
+                    </li>
+                  </ul>
+                </div>
 
-      <div className="text-xs">
-        <span className="font-semibold" style={{ color: BRAND.text }}>Last updated:</span>{" "}
-        {new Date().toLocaleDateString("en-GB")}
-      </div>
-    </div>
-  </details>
-</Card>
+                <div className="text-xs">
+                  <span className="font-semibold" style={{ color: BRAND.text }}>Last updated:</span>{" "}
+                  {new Date().toLocaleDateString("en-GB")}
+                </div>
+              </div>
+            </details>
+          </Card>
 
           {/* KPI tiles */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            <Card title="Annual subscription cost">
-              <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-                {formatGBP(outputs.aiSubscriptionAnnual)}
-              </div>
-              <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                Calculated internally (tiered)
-              </div>
-            </Card>
+          {viewMode === "internal" && outputs.aiCostingMode === "UsageBasedEstimate" && (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <Card title="Estimated assessments / year">
+                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+                  {Math.round(outputs.estimatedAssessmentsAnnual).toLocaleString("en-GB")}
+                </div>
+                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+                  Adopted students × participation × assessments per student
+                </div>
+              </Card>
+
+              <Card title="Estimated input tokens / year">
+                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+                  {Math.round(outputs.estimatedInputTokensAnnual / 1_000_000).toLocaleString("en-GB")}M
+                </div>
+                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+                  Estimated (subject-weighted)
+                </div>
+              </Card>
+
+              <Card title="Estimated output tokens / year">
+                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+                  {Math.round(outputs.estimatedOutputTokensAnnual / 1_000_000).toLocaleString("en-GB")}M
+                </div>
+                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+                  Estimated (subject-weighted)
+                </div>
+              </Card>
+            </div>
+          )}
+
+<div
+  className={
+    viewMode === "internal"
+      ? "grid grid-cols-1 gap-4 md:grid-cols-4"
+      : "grid grid-cols-1 gap-4 md:grid-cols-2"
+  }
+>
+            {viewMode === "internal" && (
+              <Card title="Annual licence fee">
+                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+                  {formatGBP(outputs.licenceFeeAnnual)}
+                </div>
+                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+                  MySmartTeach commercial price (set internally)
+                </div>
+              </Card>
+            )}
+
+            {viewMode === "internal" && outputs.aiCostingMode === "UsageBasedEstimate" && (
+              <Card title="Estimated AI inference cost (annual)">
+                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+                  {formatGBP(outputs.aiInferenceCostAnnual)}
+                </div>
+                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+                  Gemini token estimate (usage-based)
+                </div>
+              </Card>
+            )}
 
             <Card title="Annual savings">
               <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
@@ -688,23 +993,23 @@ export default function Page() {
                 {formatGBP(outputs.totalCostYear1)}
               </div>
               <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                Subscription + training + setup
-              </div>
-            </Card>
-
-            <Card
-              title={roiAnimating ? `ROI (Year ${roiYearShown})` : "ROI (Year 1)"}
-              clickable
-              onClick={startRoiAnimation}
-            >
-              <div className="text-2xl font-extrabold" style={{ color: roiColor }}>
-                {formatPct(displayedRoi)}
-              </div>
-              <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                {roiAnimating ? "Animating Year 1 → Year 5 (click disabled)" : "Click to animate to Year 5"}
+                Licence fee + training + setup
               </div>
             </Card>
           </div>
+
+          <Card
+            title={roiAnimating ? `Cumulative ROI (Year ${roiYearShown})` : "Cumulative ROI (Year 1)"}
+            clickable
+            onClick={startRoiAnimation}
+          >
+            <div className="text-2xl font-extrabold" style={{ color: roiColor }}>
+              {formatPct(displayedRoi)}
+            </div>
+            <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+              {roiAnimating ? "Animating Year 1 → Year 5 (click disabled)" : "Click to animate to Year 5"}
+            </div>
+          </Card>
 
           {/* NEW: Key Questions */}
           <div
@@ -749,10 +1054,10 @@ export default function Page() {
                 style={{ background: "#FBF7FF", border: `1px solid ${BRAND.border}` }}
               >
                 <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-Financial impact if leavers drop by 5%
+                  Financial impact if leavers drop by 5%
                 </div>
                 <div className="mt-3 rounded-xl px-3 py-3"
-                     style={{ background: "#FFFFFF", border: `1px solid ${BRAND.border}` }}>
+                  style={{ background: "#FFFFFF", border: `1px solid ${BRAND.border}` }}>
                   <div className="text-xs" style={{ color: BRAND.muted }}>
                     Annual savings from reduced attrition
                   </div>
@@ -761,7 +1066,7 @@ Financial impact if leavers drop by 5%
                   </div>
                 </div>
                 <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
-Interpreted as 5% fewer leavers (relative) among adopting teachers × replacement cost.
+                  Interpreted as 5% fewer leavers (relative) among adopting teachers × replacement cost.
                 </div>
               </div>
             </div>
@@ -925,8 +1230,11 @@ Interpreted as 5% fewer leavers (relative) among adopting teachers × replacemen
               Maximum subscription that breaks even in Year 1 after setup & training.
             </div>
           </div>
-        </div>
-      </main>
+        
+      
     </div>
+    </main >
+    </div >
   );
 }
+
