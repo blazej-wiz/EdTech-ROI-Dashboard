@@ -160,7 +160,7 @@ export default function Page() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [inputsOpen, setInputsOpen] = useState(true);
   const [inputsVisible, setInputsVisible] = useState(true);
-  //pussyclot
+
   const [resultsVisible, setResultsVisible] = useState(true);
 const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
 
