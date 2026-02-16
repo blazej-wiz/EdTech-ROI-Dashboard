@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { calculate, DEFAULTS, Inputs, ScenarioPreset, AiCostingMode } from "@/lib/calc";
 import {
@@ -158,6 +158,15 @@ export default function Page() {
   const [applied, setApplied] = useState<Inputs>(DEFAULTS);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [inputsOpen, setInputsOpen] = useState(true);
+  const [inputsVisible, setInputsVisible] = useState(true);
+  //pussyclot
+  const [resultsVisible, setResultsVisible] = useState(true);
+const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
+
+  
+
+
 
   const hasUncalculatedChanges = useMemo(
     () => !shallowEqual(draft, applied),
@@ -172,6 +181,7 @@ export default function Page() {
    * then resets to Year 1 at the end.
    */
   const [roiYearShown, setRoiYearShown] = useState<number>(1);
+  
   const [roiAnimating, setRoiAnimating] = useState(false);
   const roiTimerRef = useRef<number | null>(null);
 
@@ -259,52 +269,77 @@ export default function Page() {
     >
       <header className="mx-auto max-w-6xl px-4 py-8">
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div
-              className="h-10 w-10 rounded-2xl"
-              style={{
-                background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.indigo} 55%, ${BRAND.purple} 100%)`,
-              }}
-            />
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold tracking-tight" style={{ color: BRAND.text }}>
-                My Smart Teach ROI Dashboard
-              </h1>
-              <p className="text-sm" style={{ color: BRAND.muted }}>
-                ROI is based on savings from <span className="font-semibold">supply cover</span> and{" "}
-                <span className="font-semibold">attrition reduction</span>. Teacher time is shown separately as
-                educational value and £-equivalent value.
-              </p>
+          <div className="grid grid-cols-[40px_1fr] gap-x-3 gap-y-2">
+  {/* Icon */}
+  <div className="relative h-10 w-10 shrink-0">
+    <Image
+      src="/mysmartteach-icon.png"
+      alt="MySmartTeach"
+      fill
+      priority
+      className="object-cover"
+    />
+  </div>
 
-              <div
-                className="mt-3 inline-flex w-fit items-center gap-2 rounded-full p-1"
-                style={{ background: "#fff", border: `1px solid ${BRAND.border}` }}
-              >
-                <button
-                  className="rounded-full px-3 py-1 text-xs font-bold transition"
-                  style={{
-                    cursor: "pointer",
-                    background: viewMode === "school" ? "#EEF2FF" : "transparent",
-                    color: BRAND.text,
-                  }}
-                  onClick={() => setViewMode("school")}
-                >
-                  School view
-                </button>
-                <button
-                  className="rounded-full px-3 py-1 text-xs font-bold transition"
-                  style={{
-                    cursor: "pointer",
-                    background: viewMode === "internal" ? "#EEF2FF" : "transparent",
-                    color: BRAND.text,
-                  }}
-                  onClick={() => setViewMode("internal")}
-                >
-                  MySmartTeach internal
-                </button>
-              </div>
-            </div>
-          </div>
+  {/* Title + description */}
+  <div>
+    <h1 className="text-3xl font-bold tracking-tight" style={{ color: BRAND.text }}>
+      My Smart Teach ROI Dashboard
+    </h1>
+    <p className="text-sm" style={{ color: BRAND.muted }}>
+      ROI is based on savings from <span className="font-semibold">supply cover</span> and{" "}
+      <span className="font-semibold">attrition reduction</span>. Teacher time is shown separately as
+      educational value and £-equivalent value.
+    </p>
+  </div>
+
+  {/* Toggle row aligned with cards (spans full width) */}
+  <div className="col-span-2 mt-2">
+    <div
+      className="inline-flex w-fit items-center gap-2 rounded-full p-1"
+      style={{ background: "#fff", border: `1px solid ${BRAND.border}` }}
+    >
+      <button
+        className="rounded-full px-3 py-1 text-xs font-bold transition"
+        style={{
+          cursor: "pointer",
+          background: viewMode === "school" ? "#EEF2FF" : "transparent",
+          color: BRAND.text,
+        }}
+        onClick={() => setViewMode("school")}
+      >
+        School view
+      </button>
+
+      <button
+        className="rounded-full px-3 py-1 text-xs font-bold transition"
+        style={{
+          cursor: "pointer",
+          background: viewMode === "internal" ? "#EEF2FF" : "transparent",
+          color: BRAND.text,
+        }}
+        onClick={() => setViewMode("internal")}
+      >
+        MySmartTeach internal
+      </button>
+
+      {!inputsOpen && (
+        <button
+          className="rounded-full px-3 py-1 text-xs font-bold transition hover:opacity-90"
+          style={{ cursor: "pointer", background: "transparent", color: BRAND.text }}
+          onClick={() => {
+            setResultsVisible(true);
+            setInputsOpen(true);
+            requestAnimationFrame(() => setInputsVisible(true));
+          }}
+        >
+          Edit inputs
+        </button>
+      )}
+    </div>
+  </div>
+</div>
+
 
           {hasUncalculatedChanges ? (
             <div
@@ -333,9 +368,27 @@ export default function Page() {
       </header>
 
 
-      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-10 lg:grid-cols-3">
+<main
+  className={
+    inputsOpen
+      ? "mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-10 lg:grid-cols-3"
+      : "mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-10"
+  }
+>
         {/* Inputs */}
-        <div className="lg:col-span-1 space-y-4">
+<div
+  className={[
+    // If inputsOpen is false, remove it from layout entirely (no vertical space)
+inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
+    // When in layout, animate only opacity/transform (no layout animation)
+"space-y-4 transition-opacity transition-transform duration-100 ease-out",
+    inputsVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none",
+    // Keep col span when visible in desktop layout
+    inputsOpen ? "lg:col-span-1" : "",
+  ].join(" ")}
+>
+
+
           <div
             className="rounded-2xl p-5 shadow-sm"
             style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
@@ -437,9 +490,24 @@ export default function Page() {
                   };
 
                   setApplied(sanitized);
-                  // Optional: also update draft so the UI reflects what was applied
-                  setDraft(sanitized);
-                  stopRoiAnimation(true);
+setDraft(sanitized);
+stopRoiAnimation(true);
+
+// Phase 1: fade inputs + fade results (mask layout snap)
+setIsTransitioningLayout(true);
+setInputsVisible(false);
+setResultsVisible(false);
+
+// Phase 2: after fade duration, change layout, then fade results back in
+window.setTimeout(() => {
+  setInputsOpen(false);
+  requestAnimationFrame(() => setResultsVisible(true));
+  setIsTransitioningLayout(false);
+}, 100);
+ // MUST match your transition duration
+   // inputs fade/slide out (purely visual)
+
+
                 }}
 
               >
@@ -458,6 +526,10 @@ export default function Page() {
                   setDraft(DEFAULTS);
                   setApplied(DEFAULTS);
                   stopRoiAnimation(true);
+                  setInputsOpen(true);
+requestAnimationFrame(() => setInputsVisible(true));
+
+
                 }}
               >
                 Reset to defaults
@@ -837,7 +909,14 @@ export default function Page() {
         </div>
 
         {/* Results */}
-        <div className="lg:col-span-2 space-y-6">
+<div
+  className={[
+"space-y-6 transition-opacity duration-100 ease-out",
+  resultsVisible ? "opacity-100" : "opacity-0",
+  inputsOpen ? "lg:col-span-2" : "lg:col-span-3",
+].join(" ")}
+
+>
 
           <Card title="Assumptions & definitions">
             <details className="text-sm" style={{ color: BRAND.muted }}>
