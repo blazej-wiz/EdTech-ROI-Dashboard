@@ -15,6 +15,8 @@ export type Inputs = {
   weeksPerYear: number;      // Inputs!B13
   weeklyHoursTotal: number;  // Inputs!B17
   weeklyMarkingHours: number;// Inputs!B18
+  weeklyAiAdminHours: number; // NEW: other AI-affected admin/planning hours per week (per teacher)
+
 
   preset: ScenarioPreset;     // Inputs!B21
 
@@ -124,9 +126,17 @@ export type Outputs = {
    // Model!B39
 
   // Educational value
-  weeklyHoursSavedPerTeacher: number;        // Model!B21
-  annualHoursSavedTotal: number;             // Model!B22
-  annualValueOfReallocatedTimeGBP: number;   // Model!B24
+  weeklyHoursSavedPerTeacher: number;
+  weeklyMarkingHoursSavedPerTeacher: number;
+  weeklyAiAdminHoursSavedPerTeacher: number; // NEW
+  annualHoursSavedTotal: number;
+  annualValueOfReallocatedTimeGBP: number;
+
+
+
+  
+
+   // Model!B24
 
   // Per-student framing
   aiCostPerAdoptedStudent: number | null;
@@ -161,6 +171,8 @@ export const DEFAULTS: Inputs = {
   weeksPerYear: 39,
   weeklyHoursTotal: 54,
   weeklyMarkingHours: 10,
+  weeklyAiAdminHours: 8,
+
 
   preset: "Expected",
   markingReductionCustom: 0.45,
@@ -202,7 +214,7 @@ export const DEFAULTS: Inputs = {
   gbpPer1MOutputTokens: 0.2936,  // set to real values once confirmed
 
 
-    licenceFeeAnnual: 6000, // placeholder; internal can change
+    licenceFeeAnnual: 2000, // placeholder; internal can change
 
 
   subjectPreset: "Mixed",
@@ -372,18 +384,28 @@ const estimatedOutputTokensAnnual = estimatedAssessmentsAnnual * baseOut * weigh
 
 
   const weeks = nonneg(i.weeksPerYear);
-  const weeklyTotal = nonneg(i.weeklyHoursTotal);
-  // Guardrail: marking hours cannot exceed total hours
+const weeklyTotal = nonneg(i.weeklyHoursTotal);
+
+// Guardrail: marking hours cannot exceed total hours
 const weeklyMarkingRaw = nonneg(i.weeklyMarkingHours);
 const weeklyMarking = Math.min(weeklyMarkingRaw, weeklyTotal);
-const weeklyOther = Math.max(weeklyTotal - weeklyMarking, 0);
+
+// NEW: AI-affected admin/planning hours (explicit bucket)
+// Guardrail: cannot exceed remaining time after marking, and cannot be negative
+const weeklyAiAdminRaw = nonneg(i.weeklyAiAdminHours);
+const weeklyAiAdmin = Math.min(weeklyAiAdminRaw, Math.max(weeklyTotal - weeklyMarking, 0));
 
 
   const r = resolveReductions(i);
 
   // Model sheet logic
-  const weeklyHoursSavedPerTeacher =
-    weeklyMarking * r.marking + weeklyOther * r.other; // Model!B21
+const weeklyMarkingHoursSavedPerTeacher = weeklyMarking * r.marking;
+
+const weeklyAiAdminHoursSavedPerTeacher = weeklyAiAdmin * r.other;
+
+const weeklyHoursSavedPerTeacher =
+  weeklyMarkingHoursSavedPerTeacher + weeklyAiAdminHoursSavedPerTeacher; // Model!B21
+
   const annualHoursSavedTotal = weeklyHoursSavedPerTeacher * weeks * adoptedTeachers; // Model!B22
 
   const annualHoursPerTeacher = weeks * weeklyTotal;
@@ -502,16 +524,19 @@ estimatedOutputTokensAnnual,
    licenceFeeAnnual,
    aiInferenceCostAnnual,
     
+   weeklyHoursSavedPerTeacher,
+weeklyMarkingHoursSavedPerTeacher,
+weeklyAiAdminHoursSavedPerTeacher,
+annualHoursSavedTotal,
+annualValueOfReallocatedTimeGBP,
+
+
 
 
     netBenefitYear1,
     roiYear1,
     paybackMonths,
     breakEvenAiAnnual,
-
-    weeklyHoursSavedPerTeacher,
-    annualHoursSavedTotal,
-    annualValueOfReallocatedTimeGBP,
 
     aiCostPerAdoptedStudent,
     netBenefitPerAdoptedStudentYear1,

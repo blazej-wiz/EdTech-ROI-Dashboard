@@ -13,8 +13,8 @@ import {
   BarChart,
   Bar,
   Legend,
+  ReferenceLine,
 } from "recharts";
-
 /**
  * Lighter palette (your provided hexes) + softened fills.
  */
@@ -98,7 +98,7 @@ function InputRow({
   return (
     <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:items-center">
       <div>
-        <div className="text-sm font-semibold" style={{ color: BRAND.text }}>
+        <div className="text-sm font-medium" style={{ color: BRAND.text }}>
           {label}
         </div>
         {hint ? (
@@ -147,25 +147,34 @@ function shallowEqual(a: any, b: any) {
     return false;
   }
 }
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative my-6">
+      <div className="absolute inset-0 flex items-center">
+        <div className="w-full h-px" style={{ background: BRAND.border }} />
+      </div>
+
+      <div className="relative flex justify-center">
+        <span
+          className="px-4 text-sm font-semibold"
+          style={{ background: BRAND.card, color: BRAND.text }}
+        >
+          {children}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function Page() {
-  // Draft inputs: user edits here
-
   const [viewMode, setViewMode] = useState<"school" | "internal">("school");
 
+  // Draft inputs: user edits here
   const [draft, setDraft] = useState<Inputs>(DEFAULTS);
   // Applied inputs: used in calculation (only updates on Calculate)
   const [applied, setApplied] = useState<Inputs>(DEFAULTS);
 
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [inputsOpen, setInputsOpen] = useState(true);
-  const [inputsVisible, setInputsVisible] = useState(true);
-
-  const [resultsVisible, setResultsVisible] = useState(true);
-const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
-
-  
-
 
 
   const hasUncalculatedChanges = useMemo(
@@ -174,6 +183,30 @@ const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
   );
 
   const outputs = useMemo(() => calculate(applied), [applied]);
+  const internalEcon = useMemo(() => {
+  const licence = outputs.licenceFeeAnnual ?? outputs.aiSubscriptionAnnual ?? 0;
+  const inference = outputs.aiInferenceCostAnnual ?? 0;
+
+  const grossMargin = licence - inference;
+  const marginPct = licence > 0 ? grossMargin / licence : null;
+
+  return {
+    licence,
+    inference,
+    grossMargin,
+    marginPct,
+  };
+}, [
+  outputs.licenceFeeAnnual,
+  outputs.aiSubscriptionAnnual,
+  outputs.aiInferenceCostAnnual,
+]);
+
+  const netBenefitPerAdoptedStudent5y = useMemo(() => {
+  const year5 = outputs.projection5y[4]?.cumulativeNetBenefit ?? null;
+  if (year5 === null) return null;
+  return outputs.adoptedStudents > 0 ? year5 / outputs.adoptedStudents : null;
+}, [outputs.projection5y, outputs.adoptedStudents]);
 
   /**
    * ROI animation:
@@ -181,7 +214,6 @@ const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
    * then resets to Year 1 at the end.
    */
   const [roiYearShown, setRoiYearShown] = useState<number>(1);
-  
   const [roiAnimating, setRoiAnimating] = useState(false);
   const roiTimerRef = useRef<number | null>(null);
 
@@ -207,18 +239,22 @@ const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
     setRoiAnimating(true);
 
     let y = 1;
-    const stepMs = 900;
+    const stepMs = 1050;
+
 
     const tick = () => {
       y += 1;
 
       if (y > 5) {
-        setRoiYearShown(1);
-        roiTimerRef.current = window.setTimeout(() => {
-          stopRoiAnimation(false);
-        }, 200);
-        return;
-      }
+  // keep showing Year 5 while we finish animation state
+  roiTimerRef.current = window.setTimeout(() => {
+    setRoiAnimating(false); // stop animation first (syncs the subtitle)
+    setRoiYearShown(1);     // then reset back to Year 1
+    roiTimerRef.current = null;
+  }, 200);
+  return;
+}
+
 
       setRoiYearShown(y);
       roiTimerRef.current = window.setTimeout(tick, stepMs);
@@ -233,27 +269,77 @@ const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
   }, []);
 
   // Educational chart data
-  const timeReallocationData = useMemo(() => {
-    const total = applied.weeklyHoursTotal;
-    const adoptedAvgWeekly = outputs.weeklyHoursSavedPerTeacher * applied.adoptionRate;
-    const reallocated = Math.max(0, Math.min(total, adoptedAvgWeekly));
-    return [
-      { scenario: "No AI", adminMarking: total, reallocatedTeaching: 0 },
-      { scenario: "With AI", adminMarking: total - reallocated, reallocatedTeaching: reallocated },
-    ];
-  }, [applied.weeklyHoursTotal, applied.adoptionRate, outputs.weeklyHoursSavedPerTeacher]);
+  // Educational chart data (marking time only, reallocated — NOT added)
+const timeReallocationData = useMemo(() => {
+  const baselineAffected = applied.weeklyMarkingHours + applied.weeklyAiAdminHours;
 
-  // Projection charts
-  const cumulativeNetData = outputs.projection5y.map((r) => ({
-    year: `Year ${r.year}`,
-    cumulativeNet: Math.round(r.cumulativeNetBenefit),
-  }));
+  const freedAvg =
+    (outputs.weeklyMarkingHoursSavedPerTeacher + outputs.weeklyAiAdminHoursSavedPerTeacher) *
+    applied.adoptionRate;
 
-  const costsVsSavingsData = outputs.projection5y.map((r) => ({
-    year: `Year ${r.year}`,
-    Costs: Math.round(r.costs),
-    Savings: Math.round(r.savings),
-  }));
+  const freed = Math.max(0, Math.min(baselineAffected, freedAvg));
+  const remaining = Math.max(0, baselineAffected - freed);
+
+  return [
+    {
+      scenario: "Before AI",
+      remaining: baselineAffected,
+      freedRange: [baselineAffected, baselineAffected], // zero-height
+    },
+    {
+      scenario: "With AI",
+      remaining,
+      freedRange: [remaining, baselineAffected], // top slice
+    },
+  ];
+}, [
+  applied.weeklyMarkingHours,
+  applied.weeklyAiAdminHours,
+  applied.adoptionRate,
+  outputs.weeklyMarkingHoursSavedPerTeacher,
+  outputs.weeklyAiAdminHoursSavedPerTeacher,
+]);
+
+
+  // Projection chart: cumulative net benefit (money) — keep original meaning
+  const cumulativeNetData = useMemo(
+    () =>
+      outputs.projection5y.map((r) => ({
+        year: `Year ${r.year}`,
+        cumulativeNet: Math.round(r.cumulativeNetBenefit),
+      })),
+    [outputs.projection5y]
+  );
+
+// Break-even year: first year where cumulative net benefit >= 0
+// Break-even year = first year where cumulative net crosses from <0 to >=0 during that year
+// Break-even year (visual): the year *interval* where the line crosses 0.
+// Example: if it crosses between Year 4 and Year 5, we display "Year 4".
+// Break-even year (visual): find where cumulative net crosses 0 between year points,
+// then label the crossing by the earlier year (matches the chart perception).
+const breakEvenYear = useMemo(() => {
+  const rows = outputs.projection5y;
+  if (!rows || rows.length === 0) return null;
+
+  // If already >= 0 by end of Year 1, treat as Year 1
+  if ((rows[0].cumulativeNetBenefit ?? 0) >= 0) return 1;
+
+  for (let i = 1; i < rows.length; i++) {
+    const prevNet = rows[i - 1].cumulativeNetBenefit ?? 0;
+    const currNet = rows[i].cumulativeNetBenefit ?? 0;
+
+    if (prevNet < 0 && currNet >= 0) {
+      // crossing occurs between rows[i-1].year and rows[i].year
+      // visually label it as the earlier year (e.g. between Year 4 and 5 => "Year 4")
+      return rows[i - 1].year;
+    }
+  }
+
+  return null; // no break-even within 5 years
+}, [outputs.projection5y]);
+
+
+
 
   // Font family
   const appFont = `"Libertinus Sans", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"`;
@@ -270,76 +356,63 @@ const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
       <header className="mx-auto max-w-6xl px-4 py-8">
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-[40px_1fr] gap-x-3 gap-y-2">
-  {/* Icon */}
-  <div className="relative h-10 w-10 shrink-0">
-    <Image
-      src="/mysmartteach-icon.png"
-      alt="MySmartTeach"
-      fill
-      priority
-      className="object-cover"
-    />
-  </div>
+            {/* Icon */}
+            <div className="relative h-10 w-10 shrink-0">
+              <Image
+                src="/mysmartteach-icon.png"
+                alt="MySmartTeach"
+                fill
+                priority
+                className="object-cover"
+              />
+            </div>
 
-  {/* Title + description */}
-  <div>
-    <h1 className="text-3xl font-bold tracking-tight" style={{ color: BRAND.text }}>
-      My Smart Teach ROI Dashboard
-    </h1>
-    <p className="text-sm" style={{ color: BRAND.muted }}>
-      ROI is based on savings from <span className="font-semibold">supply cover</span> and{" "}
-      <span className="font-semibold">attrition reduction</span>. Teacher time is shown separately as
-      educational value and £-equivalent value.
-    </p>
-  </div>
+            {/* Title + description */}
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight" style={{ color: BRAND.text }}>
+                My Smart Teach ROI Dashboard
+              </h1>
+              <p className="text-sm" style={{ color: BRAND.muted }}>
+                ROI is based on savings from <span className="font-semibold">supply cover</span> and{" "}
+                <span className="font-semibold">attrition reduction</span>. Teacher time is shown separately as
+                educational value and £-equivalent value.
+              </p>
+            </div>
 
-  {/* Toggle row aligned with cards (spans full width) */}
-  <div className="col-span-2 mt-2">
-    <div
-      className="inline-flex w-fit items-center gap-2 rounded-full p-1"
-      style={{ background: "#fff", border: `1px solid ${BRAND.border}` }}
-    >
-      <button
-        className="rounded-full px-3 py-1 text-xs font-bold transition"
-        style={{
-          cursor: "pointer",
-          background: viewMode === "school" ? "#EEF2FF" : "transparent",
-          color: BRAND.text,
-        }}
-        onClick={() => setViewMode("school")}
-      >
-        School view
-      </button>
+            {/* Toggle row aligned with cards (spans full width) */}
+            <div className="col-span-2 mt-2">
+              <div
+                className="inline-flex w-fit items-center gap-2 rounded-full p-1"
+                style={{ background: "#fff", border: `1px solid ${BRAND.border}` }}
+              >
+                <button
+                  className="rounded-full px-3 py-1 text-xs font-bold transition"
+                  style={{
+                    cursor: "pointer",
+                    background: viewMode === "school" ? "#EEF2FF" : "transparent",
+                    color: BRAND.text,
+                  }}
+                  onClick={() => setViewMode("school")}
+                >
+                  School view
+                </button>
 
-      <button
-        className="rounded-full px-3 py-1 text-xs font-bold transition"
-        style={{
-          cursor: "pointer",
-          background: viewMode === "internal" ? "#EEF2FF" : "transparent",
-          color: BRAND.text,
-        }}
-        onClick={() => setViewMode("internal")}
-      >
-        MySmartTeach internal
-      </button>
+                <button
+                  className="rounded-full px-3 py-1 text-xs font-bold transition"
+                  style={{
+                    cursor: "pointer",
+                    background: viewMode === "internal" ? "#EEF2FF" : "transparent",
+                    color: BRAND.text,
+                  }}
+                  onClick={() => setViewMode("internal")}
+                >
+                  MySmartTeach internal
+                </button>
 
-      {!inputsOpen && (
-        <button
-          className="rounded-full px-3 py-1 text-xs font-bold transition hover:opacity-90"
-          style={{ cursor: "pointer", background: "transparent", color: BRAND.text }}
-          onClick={() => {
-            setResultsVisible(true);
-            setInputsOpen(true);
-            requestAnimationFrame(() => setInputsVisible(true));
-          }}
-        >
-          Edit inputs
-        </button>
-      )}
-    </div>
-  </div>
-</div>
-
+             
+              </div>
+            </div>
+          </div>
 
           {hasUncalculatedChanges ? (
             <div
@@ -367,27 +440,10 @@ const [isTransitioningLayout, setIsTransitioningLayout] = useState(false);
         </div>
       </header>
 
+      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-10 lg:grid-cols-3">
 
-<main
-  className={
-    inputsOpen
-      ? "mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-10 lg:grid-cols-3"
-      : "mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-10"
-  }
->
         {/* Inputs */}
-<div
-  className={[
-    // If inputsOpen is false, remove it from layout entirely (no vertical space)
-inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
-    // When in layout, animate only opacity/transform (no layout animation)
-"space-y-4 transition-opacity transition-transform duration-100 ease-out",
-    inputsVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4 pointer-events-none",
-    // Keep col span when visible in desktop layout
-    inputsOpen ? "lg:col-span-1" : "",
-  ].join(" ")}
->
-
+        <div className="space-y-4 lg:col-span-1">
 
           <div
             className="rounded-2xl p-5 shadow-sm"
@@ -404,7 +460,7 @@ inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
                   border: `1px solid ${BRAND.border}`,
                   color: BRAND.text,
                   background: "#fff",
-                  cursor: 'pointer',
+                  cursor: "pointer",
                 }}
                 onClick={() => setShowAdvanced((s) => !s)}
               >
@@ -413,7 +469,9 @@ inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
             </div>
 
             {/* Guardrail warnings (non-blocking) */}
-            {(draft.adoptionRate < 0 || draft.adoptionRate > 1 || draft.weeklyMarkingHours > draft.weeklyHoursTotal) && (
+            {(draft.adoptionRate < 0 ||
+              draft.adoptionRate > 1 ||
+              draft.weeklyMarkingHours > draft.weeklyHoursTotal) && (
               <div
                 className="rounded-xl px-3 py-2 text-xs font-semibold"
                 style={{ background: "#FFF7ED", color: "#9A3412", border: "1px solid #FED7AA" }}
@@ -428,7 +486,7 @@ inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
             )}
 
             <div className="mt-4 space-y-4">
-              <InputRow label="Number of teachers (FTE)" hint="Required">
+              <InputRow label="Number of teachers" hint="Required">
                 <TextInput
                   type="number"
                   min={0}
@@ -446,7 +504,7 @@ inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
                 />
               </InputRow>
 
-              <InputRow label="Teacher adoption rate" hint="Required (0.6 = 60% of teachers using the tool)">
+              <InputRow label="Teacher adoption rate" hint="Required (0.6 = 60%)">
                 <TextInput
                   type="number"
                   min={0}
@@ -457,7 +515,7 @@ inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
                 />
               </InputRow>
 
-              <InputRow label="Scenario preset" hint="Conservative / Expected / Ambitious / Custom">
+              <InputRow label="Scenario preset">
                 <SelectInput
                   value={draft.preset}
                   onChange={(e) => setDraft({ ...draft, preset: e.target.value as ScenarioPreset })}
@@ -473,11 +531,12 @@ inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
                 className="w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition"
                 style={{
                   background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.indigo} 55%, ${BRAND.purple} 100%)`,
-                  cursor: 'pointer',
+                  cursor: "pointer",
                 }}
                 onClick={() => {
                   const sanitized: Inputs = {
                     ...draft,
+                    weeklyAiAdminHours: Math.max(0, Number.isFinite(draft.weeklyAiAdminHours) ? draft.weeklyAiAdminHours : 0),
                     adoptionRate: Math.max(0, Math.min(1, Number.isFinite(draft.adoptionRate) ? draft.adoptionRate : 0)),
                     weeklyHoursTotal: Math.max(0, Number.isFinite(draft.weeklyHoursTotal) ? draft.weeklyHoursTotal : 0),
                     weeklyMarkingHours: Math.max(
@@ -490,26 +549,15 @@ inputsOpen || isTransitioningLayout ? "" : "hidden lg:hidden",
                   };
 
                   setApplied(sanitized);
-setDraft(sanitized);
-stopRoiAnimation(true);
+                  setDraft(sanitized);
+                  stopRoiAnimation(true);
 
-// Phase 1: fade inputs + fade results (mask layout snap)
-setIsTransitioningLayout(true);
-setInputsVisible(false);
-setResultsVisible(false);
-
-// Phase 2: after fade duration, change layout, then fade results back in
-window.setTimeout(() => {
-  setInputsOpen(false);
-  requestAnimationFrame(() => setResultsVisible(true));
-  setIsTransitioningLayout(false);
-}, 100);
- // MUST match your transition duration
-   // inputs fade/slide out (purely visual)
-
-
+                  // Phase 1: fade inputs + fade results (mask layout snap)
+                  
+                  // Phase 2: after fade duration, change layout, then fade results back in
+                  
+              
                 }}
-
               >
                 Calculate
               </button>
@@ -520,16 +568,12 @@ window.setTimeout(() => {
                   background: "#fff",
                   border: `1px solid ${BRAND.border}`,
                   color: BRAND.text,
-                  cursor: 'pointer',
+                  cursor: "pointer",
                 }}
                 onClick={() => {
                   setDraft(DEFAULTS);
                   setApplied(DEFAULTS);
                   stopRoiAnimation(true);
-                  setInputsOpen(true);
-requestAnimationFrame(() => setInputsVisible(true));
-
-
                 }}
               >
                 Reset to defaults
@@ -541,65 +585,61 @@ requestAnimationFrame(() => setInputsVisible(true));
                 <div className="text-sm font-bold" style={{ color: BRAND.text }}>
                   Advanced inputs
                 </div>
+                
+
                 {viewMode === "school" && (
                   <>
-                    <div className="text-sm font-bold" style={{ color: BRAND.text }}>
-                      Usage assumptions (simple)
-                    </div>
+                    {/* ---------------- ASSESSMENT USAGE ---------------- */}
+<div className="space-y-5">
+  <SectionHeader>Assessment usage</SectionHeader>
 
-                    <InputRow
-                      label="Exam participation rate"
-                      hint="Rough estimate: % of students whose assessments use MySmartTeach (e.g. 80%)."
-                    >
-                      <TextInput
-                        type="number"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={draft.examParticipationRate}
-                        onChange={(e) =>
-                          setDraft({ ...draft, examParticipationRate: Number(e.target.value) })
-                        }
-                      />
-                    </InputRow>
 
-                    <InputRow
-                      label="Assessments per student per year"
-                      hint="Keep it simple (typical range 1–20)."
-                    >
-                      <TextInput
-                        type="number"
-                        min={1}
-                        max={20}
-                        step={1}
-                        value={draft.assessmentsPerStudentPerYear}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            assessmentsPerStudentPerYear: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </InputRow>
+  <InputRow label="% of students using MySmartTeach for assessments">
+    <TextInput
+      type="number"
+      min={0}
+      max={1}
+      step={0.05}
+      value={draft.examParticipationRate}
+      onChange={(e) =>
+        setDraft({ ...draft, examParticipationRate: Number(e.target.value) })
+      }
+    />
+  </InputRow>
 
-                    <InputRow
-                      label="Subject mix"
-                      hint="High-level subject split affects estimated AI usage (no detailed weighting needed)."
-                    >
-                      <SelectInput
-                        value={draft.subjectPreset}
-                        onChange={(e) =>
-                          setDraft({ ...draft, subjectPreset: e.target.value as any })
-                        }
-                      >
-                        <option value="MostlyHumanities">Mostly humanities</option>
-                        <option value="Mixed">Mixed</option>
-                        <option value="MostlySTEM">Mostly STEM</option>
-                      </SelectInput>
-                    </InputRow>
+  <InputRow label="Assessments per student (per year)">
+    <TextInput
+      type="number"
+      min={1}
+      max={20}
+      step={1}
+      value={draft.assessmentsPerStudentPerYear}
+      onChange={(e) =>
+        setDraft({
+          ...draft,
+          assessmentsPerStudentPerYear: Number(e.target.value),
+        })
+      }
+    />
+  </InputRow>
+
+  <InputRow label="Subject focus">
+    <SelectInput
+      value={draft.subjectPreset}
+      onChange={(e) =>
+        setDraft({ ...draft, subjectPreset: e.target.value as any })
+      }
+    >
+      <option value="MostlyHumanities">Mostly humanities</option>
+      <option value="Mixed">Mixed</option>
+      <option value="MostlySTEM">Mostly STEM</option>
+    </SelectInput>
+  </InputRow>
+</div>
+
+
                   </>
                 )}
-
 
                 {viewMode === "internal" && (
                   <InputRow
@@ -615,6 +655,7 @@ requestAnimationFrame(() => setInputsVisible(true));
                     </SelectInput>
                   </InputRow>
                 )}
+
                 {viewMode === "internal" && (
                   <InputRow
                     label="MySmartTeach licence fee (annual, £)"
@@ -625,13 +666,10 @@ requestAnimationFrame(() => setInputsVisible(true));
                       min={0}
                       step={100}
                       value={draft.licenceFeeAnnual}
-                      onChange={(e) =>
-                        setDraft({ ...draft, licenceFeeAnnual: Number(e.target.value) })
-                      }
+                      onChange={(e) => setDraft({ ...draft, licenceFeeAnnual: Number(e.target.value) })}
                     />
                   </InputRow>
                 )}
-
 
                 {viewMode === "internal" && draft.aiCostingMode === "UsageBasedEstimate" && (
                   <div
@@ -742,9 +780,7 @@ requestAnimationFrame(() => setInputsVisible(true));
                         min={0}
                         step={0.1}
                         value={draft.gbpPer1MInputTokens}
-                        onChange={(e) =>
-                          setDraft({ ...draft, gbpPer1MInputTokens: Number(e.target.value) })
-                        }
+                        onChange={(e) => setDraft({ ...draft, gbpPer1MInputTokens: Number(e.target.value) })}
                       />
                     </InputRow>
 
@@ -754,311 +790,189 @@ requestAnimationFrame(() => setInputsVisible(true));
                         min={0}
                         step={0.1}
                         value={draft.gbpPer1MOutputTokens}
-                        onChange={(e) =>
-                          setDraft({ ...draft, gbpPer1MOutputTokens: Number(e.target.value) })
-                        }
+                        onChange={(e) => setDraft({ ...draft, gbpPer1MOutputTokens: Number(e.target.value) })}
                       />
                     </InputRow>
                   </div>
                 )}
 
+                {/* ---------------- WORKLOAD & TIME ---------------- */}
+<div className="space-y-4">
+  <SectionHeader>Workload & time</SectionHeader>
 
 
-                <InputRow label="Average teacher salary (£/year)" hint="Used for £-equivalent value of reallocated time">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.avgSalary}
-                    onChange={(e) => setDraft({ ...draft, avgSalary: Number(e.target.value) })}
-                  />
-                </InputRow>
+  <InputRow label="Marking hours per week (per teacher)">
+    <TextInput
+      type="number"
+      min={0}
+      value={draft.weeklyMarkingHours}
+      onChange={(e) =>
+        setDraft({ ...draft, weeklyMarkingHours: Number(e.target.value) })
+      }
+    />
+  </InputRow>
 
-                <InputRow label="School weeks per year">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.weeksPerYear}
-                    onChange={(e) => setDraft({ ...draft, weeksPerYear: Number(e.target.value) })}
-                  />
-                </InputRow>
+  <InputRow label="Admin & planning time (hours/week per teacher)">
+    <TextInput
+      type="number"
+      min={0}
+      value={draft.weeklyAiAdminHours}
+      onChange={(e) =>
+        setDraft({ ...draft, weeklyAiAdminHours: Number(e.target.value) })
+      }
+    />
+  </InputRow>
 
-                <InputRow label="Weekly working hours per teacher">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.weeklyHoursTotal}
-                    onChange={(e) => setDraft({ ...draft, weeklyHoursTotal: Number(e.target.value) })}
-                  />
-                </InputRow>
+  <InputRow label="Average teacher salary (£/year)">
+    <TextInput
+      type="number"
+      min={0}
+      value={draft.avgSalary}
+      onChange={(e) =>
+        setDraft({ ...draft, avgSalary: Number(e.target.value) })
+      }
+    />
+  </InputRow>
+</div>
 
-                <InputRow label="Marking hours per week (per teacher)">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.weeklyMarkingHours}
-                    onChange={(e) => setDraft({ ...draft, weeklyMarkingHours: Number(e.target.value) })}
-                  />
-                </InputRow>
 
-                {draft.preset === "Custom" && (
-                  <>
-                    <InputRow label="(Custom) Marking reduction (%)">
-                      <TextInput
-                        type="number"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={draft.markingReductionCustom}
-                        onChange={(e) => setDraft({ ...draft, markingReductionCustom: Number(e.target.value) })}
-                      />
-                    </InputRow>
 
-                    <InputRow label="(Custom) Other reduction (%)">
-                      <TextInput
-                        type="number"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={draft.otherReductionCustom}
-                        onChange={(e) => setDraft({ ...draft, otherReductionCustom: Number(e.target.value) })}
-                      />
-                    </InputRow>
 
-                    <InputRow label="(Custom) Sick-day reduction (%)">
-                      <TextInput
-                        type="number"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={draft.sickdayReductionCustom}
-                        onChange={(e) => setDraft({ ...draft, sickdayReductionCustom: Number(e.target.value) })}
-                      />
-                    </InputRow>
+{/* ---------------- ABSENCE & COVER ---------------- */}
+<div className="space-y-5">
+  <SectionHeader>Absence & cover</SectionHeader>
 
-                    <InputRow label="(Custom) Attrition reduction (%)">
-                      <TextInput
-                        type="number"
-                        min={0}
-                        max={1}
-                        step={0.01}
-                        value={draft.attritionReductionCustom}
-                        onChange={(e) => setDraft({ ...draft, attritionReductionCustom: Number(e.target.value) })}
-                      />
-                    </InputRow>
-                  </>
-                )}
 
-                <InputRow label="Sick days per teacher per year">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.sickDaysPerTeacher}
-                    onChange={(e) => setDraft({ ...draft, sickDaysPerTeacher: Number(e.target.value) })}
-                  />
-                </InputRow>
+  <InputRow label="Sick days per teacher (per year)">
+    <TextInput
+      type="number"
+      min={0}
+      value={draft.sickDaysPerTeacher}
+      onChange={(e) =>
+        setDraft({ ...draft, sickDaysPerTeacher: Number(e.target.value) })
+      }
+    />
+  </InputRow>
 
-                <InputRow label="Supply teacher daily cost (£/day)">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.supplyDailyCost}
-                    onChange={(e) => setDraft({ ...draft, supplyDailyCost: Number(e.target.value) })}
-                  />
-                </InputRow>
+  <InputRow label="Supply teacher daily cost (£/day)">
+    <TextInput
+      type="number"
+      min={0}
+      value={draft.supplyDailyCost}
+      onChange={(e) =>
+        setDraft({ ...draft, supplyDailyCost: Number(e.target.value) })
+      }
+    />
+  </InputRow>
+</div>
 
-                <InputRow label="Annual attrition rate (%)">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    max={1}
-                    step={0.005}
-                    value={draft.attritionRate}
-                    onChange={(e) => setDraft({ ...draft, attritionRate: Number(e.target.value) })}
-                  />
-                </InputRow>
 
-                <InputRow label="Cost to replace one teacher (£)">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.replacementCost}
-                    onChange={(e) => setDraft({ ...draft, replacementCost: Number(e.target.value) })}
-                  />
-                </InputRow>
 
-                <InputRow label="Training cost (one-time, Year 1, £)">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.trainingOneTime}
-                    onChange={(e) => setDraft({ ...draft, trainingOneTime: Number(e.target.value) })}
-                  />
-                </InputRow>
+{/* ---------------- RETENTION & RECRUITMENT ---------------- */}
+<div className="space-y-5">
+  <SectionHeader>Retention & recruitment</SectionHeader>
 
-                <InputRow label="Setup cost (one-time, Year 1, £)">
-                  <TextInput
-                    type="number"
-                    min={0}
-                    value={draft.setupOneTime}
-                    onChange={(e) => setDraft({ ...draft, setupOneTime: Number(e.target.value) })}
-                  />
-                </InputRow>
+
+  <InputRow label="% of teachers leaving each year" hint="UK average ~8.8%">
+    <TextInput
+      type="number"
+      min={0}
+      max={1}
+      step={0.005}
+      value={draft.attritionRate}
+      onChange={(e) =>
+        setDraft({ ...draft, attritionRate: Number(e.target.value) })
+      }
+    />
+  </InputRow>
+
+  <InputRow label="Cost to replace one teacher (£)">
+    <TextInput
+      type="number"
+      min={0}
+      value={draft.replacementCost}
+      onChange={(e) =>
+        setDraft({ ...draft, replacementCost: Number(e.target.value) })
+      }
+    />
+  </InputRow>
+</div>
+
+
+                
+                {viewMode === "internal" && (
+  <>
+    <InputRow label="One time training cost (£)">
+      <TextInput
+        type="number"
+        min={0}
+        value={draft.trainingOneTime}
+        onChange={(e) => setDraft({ ...draft, trainingOneTime: Number(e.target.value) })}
+      />
+    </InputRow>
+
+    <InputRow label="One time setup cost (£)">
+      <TextInput
+        type="number"
+        min={0}
+        value={draft.setupOneTime}
+        onChange={(e) => setDraft({ ...draft, setupOneTime: Number(e.target.value) })}
+      />
+    </InputRow>
+  </>
+)}
+
               </div>
             )}
           </div>
         </div>
 
         {/* Results */}
-<div
-  className={[
-"space-y-6 transition-opacity duration-100 ease-out",
-  resultsVisible ? "opacity-100" : "opacity-0",
-  inputsOpen ? "lg:col-span-2" : "lg:col-span-3",
-].join(" ")}
+        <div className="space-y-6 lg:col-span-2">
 
->
+          {/* KPI tiles (3 in one row) */}
+          {viewMode === "internal" && (
+  <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+    <Card title="Licence revenue (annual)">
+      <div className="text-xl font-extrabold" style={{ color: BRAND.text }}>
+        {formatGBP(internalEcon.licence)}
+      </div>
+    </Card>
 
-          <Card title="Assumptions & definitions">
-            <details className="text-sm" style={{ color: BRAND.muted }}>
-              <summary style={{ cursor: "pointer", color: BRAND.text, fontWeight: 700 }}>
-                How these numbers are calculated (click to expand)
-              </summary>
+    <Card title="Estimated inference cost (annual)">
+      <div className="text-xl font-extrabold" style={{ color: BRAND.text }}>
+        {formatGBP(internalEcon.inference)}
+      </div>
+    </Card>
 
-              <div className="mt-3 space-y-3" style={{ color: BRAND.muted }}>
-                <div>
-                  <div className="font-semibold" style={{ color: BRAND.text }}>
-                    What ROI includes
-                  </div>
-                  <ul className="mt-1 list-disc pl-5">
-                    <li>
-                      <span className="font-semibold" style={{ color: BRAND.text }}>Supply cover savings</span> from reduced teacher absence
-                    </li>
-                    <li>
-                      <span className="font-semibold" style={{ color: BRAND.text }}>Attrition savings</span> from fewer teacher replacements
-                    </li>
-                  </ul>
-                </div>
+    <Card title="Gross margin (annual)">
+      <div className="text-xl font-extrabold" style={{ color: BRAND.text }}>
+        {formatGBP(internalEcon.grossMargin)}
+      </div>
+    </Card>
 
-                <div>
-                  <div className="font-semibold" style={{ color: BRAND.text }}>
-                    What ROI does not include
-                  </div>
-                  <ul className="mt-1 list-disc pl-5">
-                    <li>
-                      Teacher time saved is shown as <span className="font-semibold" style={{ color: BRAND.text }}>capacity unlocked</span>, not payroll savings.
-                    </li>
-                    <li>
-                      Teachers are still paid the same — time is reallocated to higher-quality teaching and student support.
-                    </li>
-                  </ul>
-                </div>
+    <Card title="Margin">
+      <div className="text-xl font-extrabold" style={{ color: BRAND.text }}>
+        {internalEcon.marginPct === null
+          ? "—"
+          : `${(internalEcon.marginPct * 100).toFixed(1)}%`}
+      </div>
+    </Card>
+  </div>
+)}
+{viewMode === "internal" && (
+  <div
+    className="mt-2 text-xs"
+    style={{ color: BRAND.muted }}
+  >
+    Internal modelling view: margin reflects licence revenue minus estimated AI inference cost.
+    Does not include staffing, hosting, or other operating expenses.
+  </div>
+)}
 
-                <div>
-                  <div className="font-semibold" style={{ color: BRAND.text }}>
-                    Teacher adoption rate
-                  </div>
-                  <ul className="mt-1 list-disc pl-5">
-                    <li>
-                      Adoption rate represents the fraction of teachers actively using MySmartTeach.
-                    </li>
-                    <li>
-                      Savings and time benefits scale with adoption (e.g. 0.6 = 60% of teachers).
-                    </li>
-                  </ul>
-                </div>
 
-                <div>
-                  <div className="font-semibold" style={{ color: BRAND.text }}>
-                    Scenario presets
-                  </div>
-                  <ul className="mt-1 list-disc pl-5">
-                    <li>
-                      Conservative / Expected / Ambitious are illustrative assumptions. Use <span className="font-semibold" style={{ color: BRAND.text }}>Custom</span> for your own values.
-                    </li>
-                  </ul>
-                </div>
-
-                <div>
-                  <div className="font-semibold" style={{ color: BRAND.text }}>
-                    “5% retention improvement” (key question)
-                  </div>
-                  <ul className="mt-1 list-disc pl-5">
-                    <li>
-                      Interpreted as <span className="font-semibold" style={{ color: BRAND.text }}>5% fewer leavers (relative)</span> among adopting teachers, multiplied by replacement cost.
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="text-xs">
-                  <span className="font-semibold" style={{ color: BRAND.text }}>Last updated:</span>{" "}
-                  {new Date().toLocaleDateString("en-GB")}
-                </div>
-              </div>
-            </details>
-          </Card>
-
-          {/* KPI tiles */}
-          {viewMode === "internal" && outputs.aiCostingMode === "UsageBasedEstimate" && (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Card title="Estimated assessments / year">
-                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-                  {Math.round(outputs.estimatedAssessmentsAnnual).toLocaleString("en-GB")}
-                </div>
-                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                  Adopted students × participation × assessments per student
-                </div>
-              </Card>
-
-              <Card title="Estimated input tokens / year">
-                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-                  {Math.round(outputs.estimatedInputTokensAnnual / 1_000_000).toLocaleString("en-GB")}M
-                </div>
-                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                  Estimated (subject-weighted)
-                </div>
-              </Card>
-
-              <Card title="Estimated output tokens / year">
-                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-                  {Math.round(outputs.estimatedOutputTokensAnnual / 1_000_000).toLocaleString("en-GB")}M
-                </div>
-                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                  Estimated (subject-weighted)
-                </div>
-              </Card>
-            </div>
-          )}
-
-<div
-  className={
-    viewMode === "internal"
-      ? "grid grid-cols-1 gap-4 md:grid-cols-4"
-      : "grid grid-cols-1 gap-4 md:grid-cols-2"
-  }
->
-            {viewMode === "internal" && (
-              <Card title="Annual licence fee">
-                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-                  {formatGBP(outputs.licenceFeeAnnual)}
-                </div>
-                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                  MySmartTeach commercial price (set internally)
-                </div>
-              </Card>
-            )}
-
-            {viewMode === "internal" && outputs.aiCostingMode === "UsageBasedEstimate" && (
-              <Card title="Estimated AI inference cost (annual)">
-                <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-                  {formatGBP(outputs.aiInferenceCostAnnual)}
-                </div>
-                <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                  Gemini token estimate (usage-based)
-                </div>
-              </Card>
-            )}
-
-            <Card title="Annual savings">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Card title="Annual cash savings">
               <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
                 {formatGBP(outputs.annualSavingsCash)}
               </div>
@@ -1067,36 +981,51 @@ requestAnimationFrame(() => setInputsVisible(true));
               </div>
             </Card>
 
-            <Card title="Year 1 total cost">
-              <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-                {formatGBP(outputs.totalCostYear1)}
+            <Card title="Break-even">
+  <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+    {breakEvenYear === null ? (
+      <>No break-even in 5 years</>
+    ) : breakEvenYear === 1 ? (
+      <>
+        In{" "}
+        <span style={{ color: BRAND.purple, fontWeight: 700 }}>Year 1</span>
+      </>
+    ) : (
+      <>
+        In{" "}
+        <span style={{ color: BRAND.purple, fontWeight: 700 }}>
+          Year {breakEvenYear}
+        </span>
+      </>
+    )}
+  </div>
+
+  <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+    Savings exceed total costs
+  </div>
+</Card>
+
+
+            <Card
+              title={roiAnimating ? `Year ${roiYearShown} ROI` : "Year 1 ROI"}
+              clickable
+              onClick={startRoiAnimation}
+            >
+              <div className="text-2xl font-extrabold" style={{ color: roiColor }}>
+                {formatPct(displayedRoi)}
               </div>
               <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                Licence fee + training + setup
+                {roiAnimating ? "Animating Year 1 → Year 5" : "Click to animate to Year 5"}
               </div>
             </Card>
           </div>
-
-          <Card
-            title={roiAnimating ? `Cumulative ROI (Year ${roiYearShown})` : "Cumulative ROI (Year 1)"}
-            clickable
-            onClick={startRoiAnimation}
-          >
-            <div className="text-2xl font-extrabold" style={{ color: roiColor }}>
-              {formatPct(displayedRoi)}
-            </div>
-            <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-              {roiAnimating ? "Animating Year 1 → Year 5 (click disabled)" : "Click to animate to Year 5"}
-            </div>
-          </Card>
-
-          {/* NEW: Key Questions */}
+          {/* Key Questions (bottom) */}
           <div
             className="rounded-2xl p-5 shadow-sm"
             style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
           >
             <div className="text-sm font-bold" style={{ color: BRAND.muted }}>
-              Key questions (quick scenarios)
+              Investment Scenarios
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1123,9 +1052,7 @@ requestAnimationFrame(() => setInputsVisible(true));
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
-                  Uses: sick days × adopted teachers × supply daily cost × drop %.
-                </div>
+               
               </div>
 
               <div
@@ -1135,85 +1062,199 @@ requestAnimationFrame(() => setInputsVisible(true));
                 <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
                   Financial impact if leavers drop by 5%
                 </div>
-                <div className="mt-3 rounded-xl px-3 py-3"
-                  style={{ background: "#FFFFFF", border: `1px solid ${BRAND.border}` }}>
-                  <div className="text-xs" style={{ color: BRAND.muted }}>
-                    Annual savings from reduced attrition
-                  </div>
+                <div
+                  className="mt-3 rounded-xl px-3 py-3"
+                  style={{ background: "#FFFFFF", border: `1px solid ${BRAND.border}` }}
+                >
+                  
                   <div className="mt-1 text-2xl font-extrabold" style={{ color: BRAND.purple }}>
                     {formatGBP(outputs.retentionImpact5Annual)} / year
                   </div>
                 </div>
                 <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
-                  Interpreted as 5% fewer leavers (relative) among adopting teachers × replacement cost.
+                  Interpreted as 5% fewer leavers (relative) among adopting teachers.
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Charts */}
+          {/* Two graphs side by side */}
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div
-              className="rounded-2xl p-5 shadow-sm"
-              style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
-            >
-              <div className="text-sm font-bold" style={{ color: BRAND.muted }}>
-                Cumulative net benefit (5-year)
-              </div>
-              <div className="mt-3 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={cumulativeNetData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="year" />
-                    <YAxis tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                    <Tooltip formatter={(v: any) => formatGBP(Number(v))} />
-                    <Line type="monotone" dataKey="cumulativeNet" stroke={BRAND.blue} strokeWidth={3} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-2 text-xs" style={{ color: BRAND.muted }}>
-                Break-even happens when the line crosses £0.
-              </div>
-            </div>
+            {/* Cumulative net benefit (5-year) — monetary, with break-even line */}
+            {/* Cumulative net benefit (5-year) — monetary, with break-even line */}
+{/* Cumulative net benefit (5-year) — monetary, with break-even line */}
+<div
+  className="rounded-2xl p-5 shadow-sm"
+  style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
+>
+  <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+  Financial impact over 5 years
+</div>
 
+
+
+
+  <div className="mt-3 h-64">
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart
+        data={cumulativeNetData}
+        margin={{ top: 8, right: 24, left: 0, bottom: 0 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+
+        {/* Force all years to show */}
+        <XAxis dataKey="year" interval={0} tickMargin={8} />
+
+        <YAxis
+          width={52}
+          tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+        />
+
+        <Tooltip formatter={(v: any) => formatGBP(Number(v))} />
+
+        {/* Break-even line */}
+        <ReferenceLine
+          y={0}
+          stroke={BRAND.purpleDeep}
+          strokeDasharray="6 6"
+          strokeWidth={2}
+          strokeOpacity={0.7}
+        />
+        
+        <Line
+          type="monotone"
+          dataKey="cumulativeNet"
+          stroke={BRAND.blue}
+          strokeWidth={3}
+          dot={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+
+  {/* Clean legend-style caption */}
+  <div
+    className="mt-3 flex items-center gap-2 text-xs"
+    style={{ color: BRAND.muted }}
+  >
+    <span
+      className="inline-block w-8"
+      style={{ borderTop: `2px dashed ${BRAND.purpleDeep}` }}
+    />
+    Break-even line (£0)
+  </div>
+  <div className="mt-1 text-sm font-semibold" style={{ color: BRAND.text }}>
+  {breakEvenYear === null ? (
+    <>Break-even not reached within 5 years</>
+  ) : breakEvenYear === 1 ? (
+    <>
+      Break-even reached within{" "}
+      <span style={{ color: BRAND.purple, fontWeight: 700 }}>
+        Year 1
+      </span>
+    </>
+  ) : (
+    <>
+      Break-even reached in{" "}
+      <span style={{ color: BRAND.purple, fontWeight: 700 }}>
+        Year {breakEvenYear}
+      </span>
+    </>
+  )}
+</div>
+
+
+
+
+
+</div>
+
+
+
+            {/* Education Value graph */}
             <div
               className="rounded-2xl p-5 shadow-sm"
               style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
             >
-              <div className="text-sm font-bold" style={{ color: BRAND.muted }}>
-                Costs vs savings (5-year)
-              </div>
-              <div className="mt-3 h-64">
+              <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+  Teacher time reallocated
+</div>
+
+
+
+
+              <div className="mt-4 h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={costsVsSavingsData}>
+                  <BarChart data={timeReallocationData} barSize={26} maxBarSize={32}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="year" />
-                    <YAxis tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                    <Tooltip formatter={(v: any) => formatGBP(Number(v))} />
-                    <Legend />
-                    <Bar dataKey="Costs" fill={BRAND.blueDeep} />
-                    <Bar dataKey="Savings" fill={BRAND.purpleDeep} />
+                    <XAxis dataKey="scenario" />
+                    <YAxis />
+<Tooltip
+  formatter={(v: any, name: any) => {
+    if (Array.isArray(v)) {
+      const a = Number(v[0]);
+      const b = Number(v[1]);
+      const hours = Number.isFinite(a) && Number.isFinite(b) ? Math.max(0, b - a) : 0;
+      return [`${formatNum(hours, 1)} hours`, name];
+
+    }
+    const n = Number(v);
+    return [`${formatNum(Number.isFinite(n) ? n : 0, 1)} hours`, name];
+
+  }}
+/>
+
+                    
+                    <Bar
+  dataKey="remaining"
+  name="Marking + admin tasks"
+  stackId="a"
+  fill={BRAND.blueDeep}
+/>
+<Bar
+  dataKey="freedRange"
+  name="Time reallocated to teaching"
+  stackId="a"
+  fill={BRAND.purpleDeep}
+/>
+
+
+
+
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-2 text-xs" style={{ color: BRAND.muted }}>
-                Year 1 includes setup & training; Years 2–5 are subscription only.
-              </div>
+              {/* Custom legend */}
+<div className="mt-3 flex flex-col gap-1 text-xs">
+  <div className="flex items-center gap-2">
+    <span
+      className="inline-block h-3 w-3 rounded-sm"
+      style={{ background: BRAND.blueDeep }}
+    />
+    <span style={{ color: BRAND.blue }}>Marking & admin time</span>
+  </div>
+
+  <div className="flex items-center gap-2">
+    <span
+      className="inline-block h-3 w-3 rounded-sm"
+      style={{ background: BRAND.purpleDeep }}
+    />
+    <span style={{ color: BRAND.purple }}>Time reallocated to teaching</span>
+  </div>
+</div>
+
             </div>
           </div>
 
-          {/* Educational Value */}
+          {/* Educational value data (text/data section under graphs) */}
           <div
             className="rounded-2xl p-5 shadow-sm"
             style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
           >
             <div className="flex flex-col gap-1">
               <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-                Educational value (time reallocated)
+                Teacher capacity unlocked
               </div>
-              <div className="text-xs" style={{ color: BRAND.muted }}>
-                AI reallocates time from admin/marking to higher-quality, student-facing teaching.
-              </div>
+              
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1235,85 +1276,24 @@ requestAnimationFrame(() => setInputsVisible(true));
                 </div>
               </Card>
 
-              <Card title="£ value of time reallocated (annual)">
+              <Card title="Indicative value of time unlocked">
                 <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
                   {formatGBP(outputs.annualValueOfReallocatedTimeGBP)}
                 </div>
                 <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                  £-equivalent value (not included in ROI)
+                  Annual £-equivalent value (not included in ROI)
                 </div>
               </Card>
             </div>
+              
+         
 
-            <div className="mt-5 h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={timeReallocationData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="scenario" />
-                  <YAxis />
-                  <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)} hours`} />
-                  <Legend />
-                  <Bar dataKey="adminMarking" name="Admin & marking tasks" stackId="a" fill={BRAND.blueDeep} />
-                  <Bar dataKey="reallocatedTeaching" name="Reallocated to high-quality teaching" stackId="a" fill={BRAND.purpleDeep} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
 
-            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <div
-                className="rounded-xl p-3 text-sm"
-                style={{ background: "#F8FAFC", border: `1px solid ${BRAND.border}` }}
-              >
-                <div className="font-bold" style={{ color: BRAND.text }}>
-                  Adoption scaling
-                </div>
-                <div style={{ color: BRAND.muted }}>
-                  Adopted teachers: {outputs.adoptedTeachers.toFixed(1)} / {applied.teachersFTE} <br />
-                  Adopted students: {outputs.adoptedStudents.toFixed(0)} / {applied.students}
-                </div>
-              </div>
-
-              <div
-                className="rounded-xl p-3 text-sm"
-                style={{ background: "#F8FAFC", border: `1px solid ${BRAND.border}` }}
-              >
-                <div className="font-bold" style={{ color: BRAND.text }}>
-                  Per adopted student framing
-                </div>
-                <div style={{ color: BRAND.muted }}>
-                  Subscription per adopted student:{" "}
-                  {outputs.aiCostPerAdoptedStudent ? formatGBP(outputs.aiCostPerAdoptedStudent) : "—"} / year
-                  <br />
-                  Year 1 net benefit per adopted student:{" "}
-                  {outputs.netBenefitPerAdoptedStudentYear1
-                    ? formatGBP(outputs.netBenefitPerAdoptedStudentYear1)
-                    : "—"}
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Break-even */}
-          <div
-            className="rounded-2xl p-5 shadow-sm"
-            style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
-          >
-            <div className="text-sm font-bold" style={{ color: BRAND.muted }}>
-              Break-even subscription (Year 1)
-            </div>
-            <div className="mt-2" style={{ color: BRAND.text }}>
-              Break-even annual subscription:{" "}
-              <span className="font-extrabold">{formatGBP(outputs.breakEvenAiAnnual)}</span>
-            </div>
-            <div className="mt-2 text-xs" style={{ color: BRAND.muted }}>
-              Maximum subscription that breaks even in Year 1 after setup & training.
-            </div>
-          </div>
-        
-      
+          
+        </div>
+      </main>
     </div>
-    </main >
-    </div >
   );
 }
-
