@@ -1,13 +1,8 @@
-export {
-  ASSUMPTIONS,
-  DEFAULTS,
-  buildInternalView,
-  buildSchoolView,
-  calculate,
-  createModel,
-  resolveReductions,
-} from "./model";
-
+export { DEFAULTS } from "./defaults";
+export { ASSUMPTIONS, resolveReductions } from "./assumptions";
+export { calculate, createModel } from "./calculate";
+export { buildSchoolView } from "./views/school";
+export { buildInternalView } from "./views/internal";
 export type {
   AdoptionSummary,
   AiCostingMode,
@@ -28,4 +23,4 @@ export type {
   UsageSummary,
   Year1Metrics,
   YearRow,
-} from "./model";
+} from "./types";

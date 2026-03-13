@@ -1,22 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { calculate, DEFAULTS } from "./calc";
+import {
+  buildInternalView,
+  buildSchoolView,
+  calculate,
+  createModel,
+  DEFAULTS,
+} from "./calc";
 
 function closeTo(a: number, b: number, tol = 1e-6) {
   expect(Math.abs(a - b)).toBeLessThanOrEqual(tol);
 }
 
-
-    // If your pricing defaults are as you described, this should be stable.
-    // Replace these with exact expected values after first run.
-    // Example placeholders (CHANGE THESE after first run):
-    // closeTo(o.aiSubscriptionAnnual, 2600);
-    // closeTo(o.annualSupplySavings, 2975);
-    // closeTo(o.annualAttritionSavings, 1760);
-    // closeTo(o.annualSavingsCash, 4735);
-    // closeTo(o.totalCostYear1, 5350);
-    // closeTo(o.netBenefitYear1, -615);
-
-
+describe("ROI model", () => {
   it("adoptionRate=0 => no adopted teachers/students, no savings, no time saved", () => {
     const o = calculate({ ...DEFAULTS, adoptionRate: 0 });
 
@@ -79,7 +74,7 @@ function closeTo(a: number, b: number, tol = 1e-6) {
       gbpPer1MOutputTokens: 0,
     });
 
-closeTo(o.aiInferenceCostAnnual, 0);
+    closeTo(o.aiInferenceCostAnnual, 0);
   });
 
   it("usage-based mode: positive token prices => annual AI cost is positive (when volume > 0)", () => {
@@ -103,7 +98,8 @@ closeTo(o.aiInferenceCostAnnual, 0);
       tokenMultOther: 1.0,
     });
 
-    expect(o.aiSubscriptionAnnual).toBeGreaterThan(0);
+    expect(o.aiInferenceCostAnnual).toBeGreaterThan(0);
+    expect(o.aiSubscriptionAnnual).toBeGreaterThan(o.licenceFeeAnnual);
   });
 
   it("usage-based mode: if adoptionRate=0, annual AI cost should be 0 (no adopted students)", () => {
@@ -115,8 +111,57 @@ closeTo(o.aiInferenceCostAnnual, 0);
       adoptionRate: 0,
     });
 
-closeTo(o.aiInferenceCostAnnual, 0);
+    closeTo(o.aiInferenceCostAnnual, 0);
+  });
+});
+
+describe("refactored model rules", () => {
+  it("educational value is excluded from cash ROI", () => {
+    const lowSalary = calculate({ ...DEFAULTS, avgSalary: 20000 });
+    const highSalary = calculate({ ...DEFAULTS, avgSalary: 80000 });
+
+    closeTo(lowSalary.annualSavingsCash, highSalary.annualSavingsCash);
+    closeTo(lowSalary.netBenefitYear1, highSalary.netBenefitYear1);
+    expect(highSalary.annualValueOfReallocatedTimeGBP).toBeGreaterThan(
+      lowSalary.annualValueOfReallocatedTimeGBP
+    );
   });
 
+  it("cash savings decompose to internal drivers", () => {
+    const model = createModel(DEFAULTS);
+    const internal = buildInternalView(model);
 
+    closeTo(
+      internal.cashSavings.annualSavingsCash,
+      internal.cashSavings.supplySavings +
+        internal.cashSavings.retentionSavings +
+        internal.cashSavings.recruitmentSavings
+    );
+  });
+
+  it("year-1 ROI and projection use the same recurring cost base", () => {
+    const o = calculate({
+      ...DEFAULTS,
+      aiCostingMode: "UsageBasedEstimate",
+      gbpPer1MInputTokens: 2,
+      gbpPer1MOutputTokens: 3,
+    });
+
+    closeTo(
+      o.totalCostYear1 - DEFAULTS.trainingOneTime - DEFAULTS.setupOneTime,
+      o.aiSubscriptionAnnual
+    );
+    closeTo(o.projection5y[1].costs, o.aiSubscriptionAnnual);
+  });
+
+  it("school and internal views are derived from the same model", () => {
+    const model = createModel(DEFAULTS);
+    const school = buildSchoolView(model);
+    const internal = buildInternalView(model);
+
+    closeTo(school.annualSavingsCash, internal.cashSavings.annualSavingsCash);
+    closeTo(school.totalCostYear1, internal.costs.totalCostYear1);
+    closeTo(school.annualHoursSavedTotal, internal.educationalValue.annualHoursSavedTotal);
+  });
+});
 
