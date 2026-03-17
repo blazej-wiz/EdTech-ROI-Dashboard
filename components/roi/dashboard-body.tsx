@@ -63,7 +63,13 @@ export function DashboardBody({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div
+        className={
+          staticSchoolRoiTile
+            ? "grid grid-cols-1 gap-4 auto-rows-fr md:grid-cols-2 lg:grid-cols-4"
+            : "grid grid-cols-1 gap-4 md:grid-cols-3"
+        }
+      >
         <Card title="Annual cash savings">
           <div className="text-2xl font-extrabold" style={{ color: BRAND.text, fontWeight: 640 }}>
             {formatGBP(schoolView.annualSavingsCash)}
@@ -138,6 +144,18 @@ export function DashboardBody({
                 : "Click to animate to Year 5"}
           </div>
         </Card>
+
+        {staticSchoolRoiTile ? (
+          <Card title="5-year net impact">
+            <div className="text-2xl font-extrabold" style={{ color: BRAND.text, fontWeight: 630 }}>
+              {formatGBP(schoolView.impact5Year)}
+            </div>
+            <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
+              Assumes steady adoption, with higher costs in Year 1 and stable costs and savings
+              thereafter.
+            </div>
+          </Card>
+        ) : null}
       </div>
 
       <div

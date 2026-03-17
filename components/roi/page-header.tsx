@@ -14,7 +14,7 @@ export function PageHeader({
   hasUncalculatedChanges,
 }: PageHeaderProps) {
   return (
-    <header className="mx-auto max-w-6xl px-4 py-8">
+    <header className="mx-auto max-w-7xl px-4 py-8">
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-[40px_1fr] gap-x-3 gap-y-2">
           <div className="relative h-10 w-10 shrink-0">

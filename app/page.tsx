@@ -27,7 +27,7 @@ export default function Page() {
         hasUncalculatedChanges={dashboard.hasUncalculatedChanges}
       />
 
-      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 pb-10 lg:grid-cols-3">
+      <main className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 pb-10 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-1">
           <InputsPanel
             viewMode={dashboard.viewMode}
