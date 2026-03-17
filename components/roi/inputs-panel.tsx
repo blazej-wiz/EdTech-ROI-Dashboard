@@ -72,7 +72,7 @@ export function InputsPanel({
       style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
     >
       <div className="flex items-center justify-between">
-        <div className="text-base font-bold" style={{ color: BRAND.text }}>
+        <div className="text-base font-[630]" style={{ color: BRAND.text }}>
           Inputs
         </div>
 
@@ -152,7 +152,7 @@ export function InputsPanel({
         </InputRow>
 
         <button
-          className="w-full rounded-2xl px-4 py-3 text-sm font-bold text-white transition"
+          className="w-full rounded-2xl px-4 py-3 text-sm font-[630] text-white transition"
           style={{
             background: `linear-gradient(135deg, ${BRAND.blue} 0%, ${BRAND.indigo} 55%, ${BRAND.purple} 100%)`,
             cursor: "pointer",
@@ -178,7 +178,7 @@ export function InputsPanel({
 
       {showAdvanced ? (
         <div className="mt-6 space-y-6 border-t pt-5" style={{ borderColor: BRAND.border }}>
-          <div className="text-sm font-bold" style={{ color: BRAND.text }}>
+          <div className="text-sm font-[630]" style={{ color: BRAND.text }}>
             Advanced inputs
           </div>
 
@@ -272,7 +272,7 @@ export function InputsPanel({
                 Estimate now, replace with real usage later.
               </div>
 
-              <div className="text-sm font-bold" style={{ color: BRAND.text }}>
+              <div className="text-sm font-[630]" style={{ color: BRAND.text }}>
                 Token assumptions (per assessment)
               </div>
 
@@ -300,7 +300,7 @@ export function InputsPanel({
                 />
               </InputRow>
 
-              <div className="text-sm font-bold" style={{ color: BRAND.text }}>
+              <div className="text-sm font-[630]" style={{ color: BRAND.text }}>
                 Subject token multipliers
               </div>
 
@@ -358,7 +358,7 @@ export function InputsPanel({
                 </InputRow>
               </div>
 
-              <div className="text-sm font-bold" style={{ color: BRAND.text }}>
+              <div className="text-sm font-[630]" style={{ color: BRAND.text }}>
                 Gemini pricing (GBP per 1M tokens)
               </div>
 

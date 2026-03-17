@@ -31,6 +31,7 @@ type DashboardBodyProps = {
   roiYearShown: number;
   roiColor: string;
   onStartRoiAnimation: () => void;
+  staticSchoolRoiTile?: boolean;
 };
 
 export function DashboardBody({
@@ -45,6 +46,7 @@ export function DashboardBody({
   roiYearShown,
   roiColor,
   onStartRoiAnimation,
+  staticSchoolRoiTile = false,
 }: DashboardBodyProps) {
   const breakEvenYear =
     breakEvenMonth !== null && breakEvenMonth > 0 ? Math.ceil(breakEvenMonth / 12) : null;
@@ -63,7 +65,7 @@ export function DashboardBody({
     <>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card title="Annual cash savings">
-          <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+          <div className="text-2xl font-extrabold" style={{ color: BRAND.text, fontWeight: 640 }}>
             {formatGBP(schoolView.annualSavingsCash)}
           </div>
 
@@ -92,7 +94,7 @@ export function DashboardBody({
           ) : breakEvenMonth === 0 ? (
             <>
               <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-                <span style={{ color: BRAND.purple, fontWeight: 700 }}>Immediate</span>
+                <span style={{ color: BRAND.purple, fontWeight: 630 }}>Immediate</span>
               </div>
               <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
                 Savings match total costs to date.
@@ -100,13 +102,15 @@ export function DashboardBody({
             </>
           ) : (
             <>
-              <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+              <div className="text-2xl font-extrabold" style={{ color: BRAND.text, fontWeight: 630 }}>
                 During Year{" "}
-                <span style={{ color: BRAND.purple, fontWeight: 700 }}>{breakEvenYear}</span>
+                <span style={{ color: BRAND.purple, fontWeight: 630 }}>{breakEvenYear}</span>
               </div>
               <div className="mt-3 space-y-1.5 text-xs" style={{ color: BRAND.muted }}>
                 Approx. month {" "}
-                <span className = "font-semibold" style={{ color: BRAND.text, fontWeight: 700 }}>{breakEvenMonth}</span>
+                <span className="font-[630]" style={{ color: BRAND.text, fontWeight: 630 }}>
+                  {breakEvenMonth}
+                </span>
               </div>
               <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
                 Savings match total costs to date.
@@ -116,15 +120,22 @@ export function DashboardBody({
         </Card>
 
         <Card
-          title={roiAnimating ? `Year ${roiYearShown} ROI` : "Year 1 ROI"}
-          clickable
-          onClick={onStartRoiAnimation}
+          title={staticSchoolRoiTile ? "Year 1 ROI" : roiAnimating ? `Year ${roiYearShown} ROI` : "Year 1 ROI"}
+          clickable={!staticSchoolRoiTile}
+          onClick={staticSchoolRoiTile ? undefined : onStartRoiAnimation}
         >
-          <div className="text-2xl font-extrabold" style={{ color: roiColor }}>
-            {formatPct(displayedRoi)}
+          <div
+            className="text-2xl font-extrabold"
+            style={{ color: staticSchoolRoiTile ? BRAND.text : roiColor, fontWeight: 630 }}
+          >
+            {formatPct(staticSchoolRoiTile ? schoolView.roiYear1 : displayedRoi)}
           </div>
-          <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-            {roiAnimating ? "Animating Year 1 → Year 5" : "Click to animate to Year 5"}
+          <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
+            {staticSchoolRoiTile
+              ? "Includes annual licence, implementation and training costs."
+              : roiAnimating
+                ? "Animating Year 1 → Year 5"
+                : "Click to animate to Year 5"}
           </div>
         </Card>
       </div>
@@ -133,7 +144,7 @@ export function DashboardBody({
         className="rounded-2xl p-5 shadow-sm"
         style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
       >
-        <div className="text-sm font-bold" style={{ color: BRAND.muted }}>
+        <div className="text-sm font-[630]" style={{ color: BRAND.muted }}>
           Investment Scenarios
         </div>
 
@@ -142,7 +153,7 @@ export function DashboardBody({
             className="rounded-2xl p-4"
             style={{ background: "#F8FAFF", border: `1px solid ${BRAND.border}` }}
           >
-            <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+            <div className="text-sm font-extrabold" style={{ color: BRAND.text, fontWeight: 650 }}>
               Supply cover savings from lower absence
             </div>
             <div className="mt-2 space-y-2">
@@ -155,7 +166,7 @@ export function DashboardBody({
                   <div className="text-sm font-semibold" style={{ color: BRAND.text }}>
                     {point.label} absence drop
                   </div>
-                  <div className="text-sm font-extrabold" style={{ color: BRAND.blue }}>
+                  <div className="text-sm font-extrabold" style={{ color: BRAND.blue, fontWeight: 650 }}>
                     {formatGBP(point.annualSupplySavings)} / year
                   </div>
                 </div>
@@ -167,14 +178,14 @@ export function DashboardBody({
             className="rounded-2xl p-4"
             style={{ background: "#FBF7FF", border: `1px solid ${BRAND.border}` }}
           >
-            <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+            <div className="text-sm font-extrabold" style={{ color: BRAND.text, fontWeight: 650 }}>
               Savings from fewer teacher replacements
             </div>
             <div
               className="mt-3 rounded-xl px-3 py-3"
               style={{ background: "#FFFFFF", border: `1px solid ${BRAND.border}` }}
             >
-              <div className="mt-1 text-2xl font-extrabold" style={{ color: BRAND.purple }}>
+              <div className="mt-1 text-2xl font-extrabold" style={{ color: BRAND.purple, fontWeight: 650 }}>
                 {formatGBP(internalView.sensitivities.retentionImpact5Annual)} / year
               </div>
             </div>
@@ -190,7 +201,7 @@ export function DashboardBody({
           className="rounded-2xl p-5 shadow-sm"
           style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
         >
-          <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+          <div className="text-sm font-extrabold" style={{ color: BRAND.text, fontWeight: 650 }}>
             Financial impact over 5 years
           </div>
 
@@ -235,7 +246,7 @@ export function DashboardBody({
           className="rounded-2xl p-5 shadow-sm"
           style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
         >
-          <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+          <div className="text-sm font-extrabold" style={{ color: BRAND.text, fontWeight: 650 }}>
             Teacher time reallocated
           </div>
 
@@ -298,14 +309,14 @@ export function DashboardBody({
         style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
       >
         <div className="flex flex-col gap-1">
-          <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
+          <div className="text-sm font-extrabold" style={{ color: BRAND.text, fontWeight: 650 }}>
             Teacher time saved
           </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <Card title="Weekly time saved per teacher">
-            <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+            <div className="text-2xl font-extrabold" style={{ color: BRAND.text, fontWeight: 630 }}>
               {formatNum(
                 internalView.educationalValue.weeklyHoursSavedPerTeacher * applied.adoptionRate,
                 1
@@ -317,7 +328,7 @@ export function DashboardBody({
           </Card>
 
           <Card title="Total teacher hours saved per year">
-            <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+            <div className="text-2xl font-extrabold" style={{ color: BRAND.text, fontWeight: 630 }}>
               {formatNum(schoolView.annualHoursSavedTotal, 0)}
             </div>
             <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>

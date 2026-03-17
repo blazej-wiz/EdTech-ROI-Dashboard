@@ -28,7 +28,7 @@ export function PageHeader({
           </div>
 
           <div>
-            <h1 className="text-3xl font-bold tracking-tight" style={{ color: BRAND.text }}>
+            <h1 className="text-3xl font-[630] tracking-tight" style={{ color: BRAND.text }}>
               My Smart Teach ROI Dashboard
             </h1>
             <p className="text-sm" style={{ color: BRAND.muted }}>
@@ -44,7 +44,7 @@ export function PageHeader({
               style={{ background: "#fff", border: `1px solid ${BRAND.border}` }}
             >
               <button
-                className="rounded-full px-3 py-1 text-xs font-bold transition"
+                className="rounded-full px-3 py-1 text-xs font-[630] transition"
                 style={{
                   cursor: "pointer",
                   background: viewMode === "school" ? "#EEF2FF" : "transparent",
@@ -56,7 +56,7 @@ export function PageHeader({
               </button>
 
               <button
-                className="rounded-full px-3 py-1 text-xs font-bold transition"
+                className="rounded-full px-3 py-1 text-xs font-[630] transition"
                 style={{
                   cursor: "pointer",
                   background: viewMode === "internal" ? "#EEF2FF" : "transparent",
@@ -79,7 +79,7 @@ export function PageHeader({
               border: "1px solid #FED7AA",
             }}
           >
-            Unsaved changes — click <span className="font-bold">Calculate</span> to update
+            Unsaved changes — click <span className="font-[630]">Calculate</span> to update
             results
           </div>
         ) : (
