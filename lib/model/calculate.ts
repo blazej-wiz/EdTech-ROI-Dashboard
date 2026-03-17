@@ -18,8 +18,12 @@ export function createModel(raw: Partial<Inputs>): RoiModel {
   const educationalValue = calculateEducationalValue(inputs, adoption, reductions);
   const cashSavings = calculateCashSavings(inputs, adoption, reductions);
   const costs = calculateCosts(inputs, usage);
-  const year1 = calculateYear1Metrics(adoption, cashSavings, costs);
-  const { projection5y, roiByYear } = calculateProjection5y(cashSavings, costs);
+  const schoolYear1 = calculateYear1Metrics(adoption, cashSavings, costs, costs.school);
+  const internalYear1 = calculateYear1Metrics(adoption, cashSavings, costs, costs.internal);
+  const { projection5y: schoolProjection5y, roiByYear: schoolRoiByYear } =
+    calculateProjection5y(cashSavings, costs.school);
+  const { projection5y: internalProjection5y, roiByYear: internalRoiByYear } =
+    calculateProjection5y(cashSavings, costs.internal);
   const sensitivities = calculateSensitivities(inputs, adoption, cashSavings);
 
   return {
@@ -30,9 +34,12 @@ export function createModel(raw: Partial<Inputs>): RoiModel {
     educationalValue,
     cashSavings,
     costs,
-    year1,
-    projection5y,
-    roiByYear,
+    schoolYear1,
+    internalYear1,
+    schoolProjection5y,
+    schoolRoiByYear,
+    internalProjection5y,
+    internalRoiByYear,
     sensitivities,
   };
 }
@@ -43,20 +50,25 @@ export function calculate(raw: Partial<Inputs>): Outputs {
   return {
     adoptedStudents: model.adoption.adoptedStudents,
     adoptedTeachers: model.adoption.adoptedTeachers,
-    aiSubscriptionAnnual: model.costs.recurringAnnualCost,
-    totalCostYear1: model.costs.totalCostYear1,
+    aiSubscriptionAnnual: model.costs.internal.recurringAnnualCost,
     licenceFeeAnnual: model.costs.licenceFeeAnnual,
     aiInferenceCostAnnual: model.costs.aiInferenceCostAnnual,
     aiCostingMode: model.costs.aiCostingMode,
+    schoolRecurringAnnualCost: model.costs.school.recurringAnnualCost,
+    schoolTotalCostYear1: model.costs.school.totalCostYear1,
+    internalRecurringAnnualCost: model.costs.internal.recurringAnnualCost,
+    internalTotalCostYear1: model.costs.internal.totalCostYear1,
     estimatedAssessmentsAnnual: model.usage.estimatedAssessmentsAnnual,
     estimatedInputTokensAnnual: model.usage.estimatedInputTokensAnnual,
     estimatedOutputTokensAnnual: model.usage.estimatedOutputTokensAnnual,
     annualSupplySavings: model.cashSavings.supplySavings,
     annualAttritionSavings: model.cashSavings.annualAttritionSavings,
     annualSavingsCash: model.cashSavings.annualSavingsCash,
-    netBenefitYear1: model.year1.netBenefitYear1,
-    roiYear1: model.year1.roiYear1,
-    breakEvenAiAnnual: model.year1.breakEvenAiAnnual,
+    schoolNetBenefitYear1: model.schoolYear1.netBenefitYear1,
+    schoolRoiYear1: model.schoolYear1.roiYear1,
+    internalNetBenefitYear1: model.internalYear1.netBenefitYear1,
+    internalRoiYear1: model.internalYear1.roiYear1,
+    breakEvenAiAnnual: model.schoolYear1.breakEvenAiAnnual,
     weeklyHoursSavedPerTeacher: model.educationalValue.weeklyHoursSavedPerTeacher,
     weeklyMarkingHoursSavedPerTeacher:
       model.educationalValue.weeklyMarkingHoursSavedPerTeacher,
@@ -65,11 +77,13 @@ export function calculate(raw: Partial<Inputs>): Outputs {
     annualHoursSavedTotal: model.educationalValue.annualHoursSavedTotal,
     annualValueOfReallocatedTimeGBP:
       model.educationalValue.annualValueOfReallocatedTimeGBP,
-    aiCostPerAdoptedStudent: model.year1.aiCostPerAdoptedStudent,
+    aiCostPerAdoptedStudent: model.internalYear1.aiCostPerAdoptedStudent,
     netBenefitPerAdoptedStudentYear1:
-      model.year1.netBenefitPerAdoptedStudentYear1,
-    projection5y: model.projection5y,
-    roiByYear: model.roiByYear,
+      model.internalYear1.netBenefitPerAdoptedStudentYear1,
+    schoolProjection5y: model.schoolProjection5y,
+    schoolRoiByYear: model.schoolRoiByYear,
+    internalProjection5y: model.internalProjection5y,
+    internalRoiByYear: model.internalRoiByYear,
     absenceSensitivity: model.sensitivities.absenceSensitivity,
     retentionImpact5Annual: model.sensitivities.retentionImpact5Annual,
   };

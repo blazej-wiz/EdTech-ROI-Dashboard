@@ -57,7 +57,9 @@ describe("ROI model", () => {
 
     // ROI should be <= (worse or equal) when costs go up
     // Note: ROI can be null if totalCostYear1 is 0; defaults won't be.
-    expect(higher.roiYear1 as number).toBeLessThanOrEqual(base.roiYear1 as number);
+    expect(higher.schoolRoiYear1 as number).toBeLessThanOrEqual(
+      base.schoolRoiYear1 as number
+    );
   });
 
   it("key question: absence sensitivity increases with rate", () => {
@@ -99,7 +101,8 @@ describe("ROI model", () => {
     });
 
     expect(o.aiInferenceCostAnnual).toBeGreaterThan(0);
-    expect(o.aiSubscriptionAnnual).toBeGreaterThan(o.licenceFeeAnnual);
+    expect(o.internalRecurringAnnualCost).toBeGreaterThan(o.licenceFeeAnnual);
+    closeTo(o.schoolRecurringAnnualCost, o.licenceFeeAnnual);
   });
 
   it("usage-based mode: if adoptionRate=0, annual AI cost should be 0 (no adopted students)", () => {
@@ -121,7 +124,7 @@ describe("refactored model rules", () => {
     const highSalary = calculate({ ...DEFAULTS, avgSalary: 80000 });
 
     closeTo(lowSalary.annualSavingsCash, highSalary.annualSavingsCash);
-    closeTo(lowSalary.netBenefitYear1, highSalary.netBenefitYear1);
+    closeTo(lowSalary.schoolNetBenefitYear1, highSalary.schoolNetBenefitYear1);
     expect(highSalary.annualValueOfReallocatedTimeGBP).toBeGreaterThan(
       lowSalary.annualValueOfReallocatedTimeGBP
     );
@@ -139,7 +142,7 @@ describe("refactored model rules", () => {
     );
   });
 
-  it("year-1 ROI and projection use the same recurring cost base", () => {
+  it("school and internal financials each use a consistent recurring cost base", () => {
     const o = calculate({
       ...DEFAULTS,
       aiCostingMode: "UsageBasedEstimate",
@@ -148,10 +151,29 @@ describe("refactored model rules", () => {
     });
 
     closeTo(
-      o.totalCostYear1 - DEFAULTS.trainingOneTime - DEFAULTS.setupOneTime,
+      o.schoolTotalCostYear1 - DEFAULTS.trainingOneTime - DEFAULTS.setupOneTime,
+      o.schoolRecurringAnnualCost
+    );
+    closeTo(
+      o.internalTotalCostYear1 - DEFAULTS.trainingOneTime - DEFAULTS.setupOneTime,
       o.aiSubscriptionAnnual
     );
-    closeTo(o.projection5y[1].costs, o.aiSubscriptionAnnual);
+    closeTo(o.schoolProjection5y[1].costs, o.schoolRecurringAnnualCost);
+    closeTo(o.internalProjection5y[1].costs, o.internalRecurringAnnualCost);
+  });
+
+  it("school-facing financials ignore inference cost while internal financials include it", () => {
+    const o = calculate({
+      ...DEFAULTS,
+      aiCostingMode: "UsageBasedEstimate",
+      gbpPer1MInputTokens: 4,
+      gbpPer1MOutputTokens: 5,
+    });
+
+    closeTo(o.schoolRecurringAnnualCost, o.licenceFeeAnnual);
+    expect(o.internalRecurringAnnualCost).toBeGreaterThan(o.schoolRecurringAnnualCost);
+    expect(o.internalTotalCostYear1).toBeGreaterThan(o.schoolTotalCostYear1);
+    expect(o.internalRoiYear1 as number).toBeLessThanOrEqual(o.schoolRoiYear1 as number);
   });
 
   it("school and internal views are derived from the same model", () => {
@@ -160,8 +182,7 @@ describe("refactored model rules", () => {
     const internal = buildInternalView(model);
 
     closeTo(school.annualSavingsCash, internal.cashSavings.annualSavingsCash);
-    closeTo(school.totalCostYear1, internal.costs.totalCostYear1);
+    closeTo(school.totalCostYear1, internal.costs.school.totalCostYear1);
     closeTo(school.annualHoursSavedTotal, internal.educationalValue.annualHoursSavedTotal);
   });
 });
-

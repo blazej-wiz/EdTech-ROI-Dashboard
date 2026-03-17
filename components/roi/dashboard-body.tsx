@@ -46,6 +46,8 @@ export function DashboardBody({
   roiColor,
   onStartRoiAnimation,
 }: DashboardBodyProps) {
+  const breakEvenYear =
+    breakEvenMonth !== null && breakEvenMonth > 0 ? Math.ceil(breakEvenMonth / 12) : null;
   const annualSavingsDrivers = [
     {
       label: "Supply cover",
@@ -78,26 +80,39 @@ export function DashboardBody({
         </Card>
 
         <Card title="Break-even">
-          <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-            {breakEvenMonth === null ? (
-              <>No break-even in 5 years</>
-            ) : breakEvenMonth === 0 ? (
-              <>
+          {breakEvenMonth === null ? (
+            <>
+              <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+                No break-even in 5 years
+              </div>
+              <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+                Savings do not match total costs within 5 years.
+              </div>
+            </>
+          ) : breakEvenMonth === 0 ? (
+            <>
+              <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
                 <span style={{ color: BRAND.purple, fontWeight: 700 }}>Immediate</span>
-              </>
-            ) : (
-              <>
-                Month{" "}
-                <span style={{ color: BRAND.purple, fontWeight: 700 }}>
-                  {breakEvenMonth}
-                </span>
-              </>
-            )}
-          </div>
-
-          <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-            Cumulative cash savings cover costs
-          </div>
+              </div>
+              <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+                Savings match total costs to date.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
+                During Year{" "}
+                <span style={{ color: BRAND.purple, fontWeight: 700 }}>{breakEvenYear}</span>
+              </div>
+              <div className="mt-3 space-y-1.5 text-xs" style={{ color: BRAND.muted }}>
+                Approx. month {" "}
+                <span className = "font-semibold" style={{ color: BRAND.text, fontWeight: 700 }}>{breakEvenMonth}</span>
+              </div>
+              <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+                Savings match total costs to date.
+              </div>
+            </>
+          )}
         </Card>
 
         <Card
@@ -128,7 +143,7 @@ export function DashboardBody({
             style={{ background: "#F8FAFF", border: `1px solid ${BRAND.border}` }}
           >
             <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-              Savings if absence drops (supply cover)
+              Supply cover savings from lower absence
             </div>
             <div className="mt-2 space-y-2">
               {internalView.sensitivities.absenceSensitivity.map((point) => (
@@ -153,7 +168,7 @@ export function DashboardBody({
             style={{ background: "#FBF7FF", border: `1px solid ${BRAND.border}` }}
           >
             <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-              Financial impact if leavers drop by 5%
+              Savings from fewer teacher replacements
             </div>
             <div
               className="mt-3 rounded-xl px-3 py-3"
@@ -164,7 +179,7 @@ export function DashboardBody({
               </div>
             </div>
             <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
-              Interpreted as 5% fewer leavers (relative) among adopting teachers.
+              Based on 5% fewer teachers leaving each year among adopting teachers.
             </div>
           </div>
         </div>
@@ -212,7 +227,7 @@ export function DashboardBody({
           </div>
 
           <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
-            Cumulative net impact after licence and setup costs.
+            Cumulative net impact after total costs.
           </div>
         </div>
 
@@ -284,12 +299,12 @@ export function DashboardBody({
       >
         <div className="flex flex-col gap-1">
           <div className="text-sm font-extrabold" style={{ color: BRAND.text }}>
-            Teacher capacity unlocked
+            Teacher time saved
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card title="Hours reallocated per teacher (weekly)">
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Card title="Weekly time saved per teacher">
             <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
               {formatNum(
                 internalView.educationalValue.weeklyHoursSavedPerTeacher * applied.adoptionRate,
@@ -297,11 +312,11 @@ export function DashboardBody({
               )}
             </div>
             <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-              Adoption-adjusted average
+              Average across adopting teachers
             </div>
           </Card>
 
-          <Card title="Total hours reallocated (annual)">
+          <Card title="Total teacher hours saved per year">
             <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
               {formatNum(schoolView.annualHoursSavedTotal, 0)}
             </div>
@@ -309,15 +324,29 @@ export function DashboardBody({
               Across adopting teachers
             </div>
           </Card>
+        </div>
 
-          <Card title="Indicative value of time unlocked">
-            <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
-              {formatGBP(schoolView.annualValueOfReallocatedTimeGBP)}
-            </div>
-            <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-              Annual £-equivalent value (not included in ROI)
-            </div>
-          </Card>
+        <div
+          className="mt-4 rounded-2xl px-4 py-3 text-sm"
+          style={{ background: "#F8FAFF", color: BRAND.muted, border: `1px solid ${BRAND.border}` }}
+        >
+          <span style={{ color: BRAND.text, fontWeight: 600 }}>
+            Equivalent to roughly {formatGBP(schoolView.annualValueOfReallocatedTimeGBP)} of
+            teacher time,
+          </span>{" "}
+          based on average salary assumptions.
+          <div className="mt-1 text-xs">(Not included in cash ROI)</div>
+        </div>
+      </div>
+
+      <div className="border-t pt-4" style={{ borderColor: BRAND.border }}>
+        <div className="text-sm font-semibold" style={{ color: BRAND.text }}>
+          Model assumptions
+        </div>
+        <div className="mt-2 text-xs leading-5" style={{ color: BRAND.muted }}>
+          Estimates are based on UK teacher salary averages, supply cover costs, and typical
+          teacher attrition rates. Time value estimates are illustrative and not included in cash
+          ROI.
         </div>
       </div>
     </>

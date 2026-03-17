@@ -13,6 +13,11 @@ import { BRAND } from "./ui";
 export type RoiViewMode = "school" | "internal";
 export type RawInputState = Partial<Record<keyof Inputs, string>>;
 
+type MonthlyCumulativeNetPoint = {
+  month: number;
+  cumulativeNet: number;
+};
+
 function shallowEqual(a: unknown, b: unknown) {
   try {
     return JSON.stringify(a) === JSON.stringify(b);
@@ -48,6 +53,56 @@ function sanitizeInputs(draft: Inputs): Inputs {
   };
 }
 
+function buildMonthlyCumulativeNetData(
+  annualSavingsCash: number,
+  recurringAnnualCost: number,
+  trainingOneTime: number,
+  setupOneTime: number
+): MonthlyCumulativeNetPoint[] {
+  const monthlySavings = annualSavingsCash / 12;
+  const initialContractCost = recurringAnnualCost + trainingOneTime + setupOneTime;
+  let cumulativeNet = -initialContractCost;
+  const data = [{ month: 0, cumulativeNet: Math.round(cumulativeNet) }];
+
+  for (let month = 1; month <= 60; month += 1) {
+    if (month > 1 && (month - 1) % 12 === 0) {
+      cumulativeNet -= recurringAnnualCost;
+    }
+
+    cumulativeNet += monthlySavings;
+    data.push({
+      month,
+      cumulativeNet: Math.round(cumulativeNet),
+    });
+  }
+
+  return data;
+}
+
+function calculateBreakEvenMonth(
+  annualSavingsCash: number,
+  monthlyCumulativeNetData: MonthlyCumulativeNetPoint[]
+) {
+  const monthlySavings = annualSavingsCash / 12;
+  if (monthlySavings <= 0) return null;
+
+  for (let index = 1; index < monthlyCumulativeNetData.length; index += 1) {
+    const previousNet = monthlyCumulativeNetData[index - 1]?.cumulativeNet ?? 0;
+    const currentNet = monthlyCumulativeNetData[index]?.cumulativeNet ?? 0;
+
+    if (previousNet >= 0) {
+      return 0;
+    }
+
+    if (previousNet < 0 && currentNet >= 0) {
+      const exactMonths = (index - 1) + Math.abs(previousNet) / monthlySavings;
+      return Math.max(1, Math.round(exactMonths));
+    }
+  }
+
+  return null;
+}
+
 export function useRoiDashboard() {
   const [viewMode, setViewMode] = useState<RoiViewMode>("school");
   const [draft, setDraft] = useState<Inputs>(DEFAULTS);
@@ -68,8 +123,7 @@ export function useRoiDashboard() {
   const internalView = useMemo(() => buildInternalView(model), [model]);
 
   const internalEcon = useMemo(() => {
-    const licence =
-      internalView.costs.licenceFeeAnnual ?? internalView.costs.recurringAnnualCost ?? 0;
+    const licence = internalView.costs.licenceFeeAnnual ?? 0;
     const inference = internalView.costs.aiInferenceCostAnnual ?? 0;
     const grossMargin = licence - inference;
     const marginPct = licence > 0 ? grossMargin / licence : null;
@@ -83,11 +137,11 @@ export function useRoiDashboard() {
   }, [
     internalView.costs.aiInferenceCostAnnual,
     internalView.costs.licenceFeeAnnual,
-    internalView.costs.recurringAnnualCost,
   ]);
 
   const displayedRoi =
-    model.roiByYear[roiYearShown - 1] ?? internalView.year1.roiYear1;
+    (viewMode === "school" ? model.schoolRoiByYear : model.internalRoiByYear)[roiYearShown - 1] ??
+    (viewMode === "school" ? schoolView.roiYear1 : internalView.year1.roiYear1);
   const roiColor =
     displayedRoi !== null && Number.isFinite(displayedRoi) && displayedRoi < 0
       ? BRAND.bad
@@ -161,36 +215,40 @@ export function useRoiDashboard() {
     internalView.educationalValue.weeklyMarkingHoursSavedPerTeacher,
   ]);
 
-  const monthlyCumulativeNetData = useMemo(() => {
-    const monthlySavings = internalView.cashSavings.annualSavingsCash / 12;
-    const initialContractCost =
-      internalView.costs.licenceFeeAnnual +
-      internalView.costs.trainingOneTime +
-      internalView.costs.setupOneTime;
-    let cumulativeNet = -initialContractCost;
-    const data = [{ month: 0, cumulativeNet: Math.round(cumulativeNet) }];
-
-    for (let month = 1; month <= 60; month += 1) {
-      if (month > 1 && (month - 1) % 12 === 0) {
-        cumulativeNet -= internalView.costs.licenceFeeAnnual;
-      }
-
-      cumulativeNet += monthlySavings;
-      data.push({
-        month,
-        cumulativeNet: Math.round(cumulativeNet),
-      });
-    }
-
-    return data;
-  }, [
+  const schoolMonthlyCumulativeNetData = useMemo(() => buildMonthlyCumulativeNetData(
     internalView.cashSavings.annualSavingsCash,
-    internalView.costs.licenceFeeAnnual,
+    internalView.costs.school.recurringAnnualCost,
+    internalView.costs.trainingOneTime,
+    internalView.costs.setupOneTime
+  ), [
+    internalView.cashSavings.annualSavingsCash,
+    internalView.costs.school.recurringAnnualCost,
     internalView.costs.setupOneTime,
     internalView.costs.trainingOneTime,
   ]);
 
-  const cumulativeNetData = useMemo(
+  const internalMonthlyCumulativeNetData = useMemo(() => buildMonthlyCumulativeNetData(
+    internalView.cashSavings.annualSavingsCash,
+    internalView.costs.internal.recurringAnnualCost,
+    internalView.costs.trainingOneTime,
+    internalView.costs.setupOneTime
+  ), [
+    internalView.cashSavings.annualSavingsCash,
+    internalView.costs.internal.recurringAnnualCost,
+    internalView.costs.setupOneTime,
+    internalView.costs.trainingOneTime,
+  ]);
+
+  const schoolCumulativeNetData = useMemo(
+    () =>
+      model.schoolProjection5y.map((row) => ({
+        year: `Year ${row.year}`,
+        cumulativeNet: Math.round(row.cumulativeNetBenefit),
+      })),
+    [model.schoolProjection5y]
+  );
+
+  const internalCumulativeNetData = useMemo(
     () =>
       internalView.projection5y.map((row) => ({
         year: `Year ${row.year}`,
@@ -199,26 +257,21 @@ export function useRoiDashboard() {
     [internalView.projection5y]
   );
 
-  const breakEvenMonth = useMemo(() => {
-    const monthlySavings = internalView.cashSavings.annualSavingsCash / 12;
-    if (monthlySavings <= 0) return null;
+  const cumulativeNetData = viewMode === "school" ? schoolCumulativeNetData : internalCumulativeNetData;
 
-    for (let index = 1; index < monthlyCumulativeNetData.length; index += 1) {
-      const previousNet = monthlyCumulativeNetData[index - 1]?.cumulativeNet ?? 0;
-      const currentNet = monthlyCumulativeNetData[index]?.cumulativeNet ?? 0;
-
-      if (previousNet >= 0) {
-        return 0;
-      }
-
-      if (previousNet < 0 && currentNet >= 0) {
-        const exactMonths = (index - 1) + Math.abs(previousNet) / monthlySavings;
-        return Math.max(1, Math.round(exactMonths));
-      }
-    }
-
-    return null;
-  }, [internalView.cashSavings.annualSavingsCash, monthlyCumulativeNetData]);
+  const breakEvenMonth = useMemo(
+    () =>
+      calculateBreakEvenMonth(
+        internalView.cashSavings.annualSavingsCash,
+        viewMode === "school" ? schoolMonthlyCumulativeNetData : internalMonthlyCumulativeNetData
+      ),
+    [
+      internalView.cashSavings.annualSavingsCash,
+      internalMonthlyCumulativeNetData,
+      schoolMonthlyCumulativeNetData,
+      viewMode,
+    ]
+  );
 
   function applyDraft() {
     const sanitized = sanitizeInputs(draft);

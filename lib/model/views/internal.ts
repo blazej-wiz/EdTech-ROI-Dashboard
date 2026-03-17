@@ -8,8 +8,8 @@ export function buildInternalView(model: RoiModel): InternalView {
     educationalValue: model.educationalValue,
     cashSavings: model.cashSavings,
     costs: model.costs,
-    year1: model.year1,
-    projection5y: model.projection5y,
+    year1: model.internalYear1,
+    projection5y: model.internalProjection5y,
     sensitivities: model.sensitivities,
   };
 }

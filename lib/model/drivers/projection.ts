@@ -1,8 +1,8 @@
-import { CashSavingsSummary, CostSummary, YearRow } from "../types";
+import { CashSavingsSummary, CostBasis, YearRow } from "../types";
 
 export function calculateProjection5y(
   cashSavings: CashSavingsSummary,
-  costs: CostSummary
+  costBasis: CostBasis
 ): { projection5y: YearRow[]; roiByYear: (number | null)[] } {
   const projection5y: YearRow[] = [];
   const roiByYear: (number | null)[] = [];
@@ -12,7 +12,7 @@ export function calculateProjection5y(
   let cumulativeNet = 0;
 
   for (let year = 1; year <= 5; year += 1) {
-    const annualCosts = year === 1 ? costs.totalCostYear1 : costs.recurringAnnualCost;
+    const annualCosts = year === 1 ? costBasis.totalCostYear1 : costBasis.recurringAnnualCost;
     const annualSavings = cashSavings.annualSavingsCash;
     const netBenefit = annualSavings - annualCosts;
 

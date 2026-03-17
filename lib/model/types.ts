@@ -66,18 +66,23 @@ export type Outputs = {
   adoptedStudents: number;
   adoptedTeachers: number;
   aiSubscriptionAnnual: number;
-  totalCostYear1: number;
   licenceFeeAnnual: number;
   aiInferenceCostAnnual: number;
   aiCostingMode: AiCostingMode;
+  schoolRecurringAnnualCost: number;
+  schoolTotalCostYear1: number;
+  internalRecurringAnnualCost: number;
+  internalTotalCostYear1: number;
   estimatedAssessmentsAnnual: number;
   estimatedInputTokensAnnual: number;
   estimatedOutputTokensAnnual: number;
   annualSupplySavings: number;
   annualAttritionSavings: number;
   annualSavingsCash: number;
-  netBenefitYear1: number;
-  roiYear1: number | null;
+  schoolNetBenefitYear1: number;
+  schoolRoiYear1: number | null;
+  internalNetBenefitYear1: number;
+  internalRoiYear1: number | null;
   breakEvenAiAnnual: number;
   weeklyHoursSavedPerTeacher: number;
   weeklyMarkingHoursSavedPerTeacher: number;
@@ -86,8 +91,10 @@ export type Outputs = {
   annualValueOfReallocatedTimeGBP: number;
   aiCostPerAdoptedStudent: number | null;
   netBenefitPerAdoptedStudentYear1: number | null;
-  projection5y: YearRow[];
-  roiByYear: (number | null)[];
+  schoolProjection5y: YearRow[];
+  schoolRoiByYear: (number | null)[];
+  internalProjection5y: YearRow[];
+  internalRoiByYear: (number | null)[];
   absenceSensitivity: SensitivityPoint[];
   retentionImpact5Annual: number;
 };
@@ -148,9 +155,14 @@ export type CostSummary = {
   aiCostingMode: AiCostingMode;
   licenceFeeAnnual: number;
   aiInferenceCostAnnual: number;
-  recurringAnnualCost: number;
   trainingOneTime: number;
   setupOneTime: number;
+  school: CostBasis;
+  internal: CostBasis;
+};
+
+export type CostBasis = {
+  recurringAnnualCost: number;
   totalCostYear1: number;
 };
 
@@ -175,9 +187,12 @@ export type RoiModel = {
   educationalValue: EducationalValueSummary;
   cashSavings: CashSavingsSummary;
   costs: CostSummary;
-  year1: Year1Metrics;
-  projection5y: YearRow[];
-  roiByYear: (number | null)[];
+  schoolYear1: Year1Metrics;
+  internalYear1: Year1Metrics;
+  schoolProjection5y: YearRow[];
+  schoolRoiByYear: (number | null)[];
+  internalProjection5y: YearRow[];
+  internalRoiByYear: (number | null)[];
   sensitivities: SensitivitySummary;
 };
 
