@@ -49,6 +49,7 @@ export default function Page() {
               internalView={dashboard.internalView}
               applied={dashboard.applied}
               timeReallocationData={dashboard.timeReallocationData}
+              schoolMonthlyCumulativeNetData={dashboard.schoolMonthlyCumulativeNetData}
               cumulativeNetData={dashboard.cumulativeNetData}
               breakEvenMonth={dashboard.breakEvenMonth}
               displayedRoi={dashboard.displayedRoi}
@@ -64,6 +65,7 @@ export default function Page() {
               internalEcon={dashboard.internalEcon}
               applied={dashboard.applied}
               timeReallocationData={dashboard.timeReallocationData}
+              schoolMonthlyCumulativeNetData={dashboard.schoolMonthlyCumulativeNetData}
               cumulativeNetData={dashboard.cumulativeNetData}
               breakEvenMonth={dashboard.breakEvenMonth}
               displayedRoi={dashboard.displayedRoi}

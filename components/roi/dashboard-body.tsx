@@ -1,10 +1,13 @@
 import type { Inputs, InternalView, SchoolView } from "@/lib/calc";
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -25,6 +28,10 @@ type DashboardBodyProps = {
     year: string;
     cumulativeNet: number;
   }[];
+  schoolMonthlyCumulativeNetData?: {
+    month: number;
+    cumulativeNet: number;
+  }[];
   breakEvenMonth: number | null;
   displayedRoi: number | null;
   roiAnimating: boolean;
@@ -34,12 +41,48 @@ type DashboardBodyProps = {
   staticSchoolRoiTile?: boolean;
 };
 
+const SCHOOL_MONTHLY_CHART_TICKS = [0, 12, 24, 36, 48, 60];
+const SCHOOL_DISPLAY_SMOOTHING_WINDOW = 2;
+
+function buildSchoolDisplayChartData(
+  points: { month: number; cumulativeNet: number }[],
+  anchorMonths: Set<number>
+) {
+  return points.map((point, index) => {
+    if (anchorMonths.has(point.month)) {
+      return { ...point, displayCumulativeNet: point.cumulativeNet };
+    }
+
+    let weightedTotal = 0;
+    let totalWeight = 0;
+
+    for (
+      let compareIndex = Math.max(0, index - SCHOOL_DISPLAY_SMOOTHING_WINDOW);
+      compareIndex <= Math.min(points.length - 1, index + SCHOOL_DISPLAY_SMOOTHING_WINDOW);
+      compareIndex += 1
+    ) {
+      const neighbor = points[compareIndex];
+      const distance = Math.abs(compareIndex - index);
+      const weight = SCHOOL_DISPLAY_SMOOTHING_WINDOW + 1 - distance;
+
+      weightedTotal += (neighbor?.cumulativeNet ?? 0) * weight;
+      totalWeight += weight;
+    }
+
+    return {
+      ...point,
+      displayCumulativeNet: totalWeight > 0 ? weightedTotal / totalWeight : point.cumulativeNet,
+    };
+  });
+}
+
 export function DashboardBody({
   schoolView,
   internalView,
   applied,
   timeReallocationData,
   cumulativeNetData,
+  schoolMonthlyCumulativeNetData,
   breakEvenMonth,
   displayedRoi,
   roiAnimating,
@@ -50,6 +93,33 @@ export function DashboardBody({
 }: DashboardBodyProps) {
   const breakEvenYear =
     breakEvenMonth !== null && breakEvenMonth > 0 ? Math.ceil(breakEvenMonth / 12) : null;
+  const schoolDisplayChartData = useMemo(() => {
+    if (!staticSchoolRoiTile || !schoolMonthlyCumulativeNetData) return [];
+
+    const anchorMonths = new Set<number>([0, 60]);
+    if (breakEvenMonth !== null && breakEvenMonth > 0 && breakEvenMonth <= 60) {
+      anchorMonths.add(breakEvenMonth);
+    }
+
+    return buildSchoolDisplayChartData(schoolMonthlyCumulativeNetData, anchorMonths);
+  }, [breakEvenMonth, schoolMonthlyCumulativeNetData, staticSchoolRoiTile]);
+  const schoolBreakEvenPoint = useMemo(() => {
+    if (
+      !staticSchoolRoiTile ||
+      !schoolMonthlyCumulativeNetData ||
+      breakEvenMonth === null ||
+      breakEvenMonth <= 0
+    ) {
+      return null;
+    }
+
+    return (
+      schoolMonthlyCumulativeNetData.find((point) => point.month === breakEvenMonth) ?? {
+        month: breakEvenMonth,
+        cumulativeNet: 0,
+      }
+    );
+  }, [breakEvenMonth, schoolMonthlyCumulativeNetData, staticSchoolRoiTile]);
   const annualSavingsDrivers = [
     {
       label: "Supply cover",
@@ -70,12 +140,12 @@ export function DashboardBody({
             : "grid grid-cols-1 gap-4 md:grid-cols-3"
         }
       >
-        <Card title="Annual cash savings">
+        <Card title="Annual cash savings" bodyClassName={staticSchoolRoiTile ? "flex h-full flex-col" : undefined}>
           <div className="text-2xl font-extrabold" style={{ color: BRAND.text, fontWeight: 640 }}>
             {formatGBP(schoolView.annualSavingsCash)}
           </div>
 
-          <div className="mt-3 space-y-1.5 text-xs" style={{ color: BRAND.muted }}>
+          <div className="mt-2 pt-3 space-y-1.5 text-xs" style={{ color: BRAND.muted }}>
             {annualSavingsDrivers.map((driver) => (
               <div key={driver.label} className="flex items-center justify-between gap-3">
                 <span>{driver.label}</span>
@@ -87,13 +157,13 @@ export function DashboardBody({
           </div>
         </Card>
 
-        <Card title="Break-even">
+        <Card title="Break-even" bodyClassName={staticSchoolRoiTile ? "flex h-full flex-col" : undefined}>
           {breakEvenMonth === null ? (
             <>
               <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
                 No break-even in 5 years
               </div>
-              <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
+              <div className="mt-auto pt-3 text-xs" style={{ color: BRAND.muted }}>
                 Savings do not match total costs within 5 years.
               </div>
             </>
@@ -102,8 +172,10 @@ export function DashboardBody({
               <div className="text-2xl font-extrabold" style={{ color: BRAND.text }}>
                 <span style={{ color: BRAND.purple, fontWeight: 630 }}>Immediate</span>
               </div>
-              <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                Savings match total costs to date.
+              <div className="mt-auto pt-3 text-xs" style={{ color: BRAND.muted }}>
+                Includes:
+                Annual licence
+                One-off implementation & training
               </div>
             </>
           ) : (
@@ -112,14 +184,19 @@ export function DashboardBody({
                 During Year{" "}
                 <span style={{ color: BRAND.purple, fontWeight: 630 }}>{breakEvenYear}</span>
               </div>
-              <div className="mt-3 space-y-1.5 text-xs" style={{ color: BRAND.muted }}>
-                Approx. month {" "}
-                <span className="font-[630]" style={{ color: BRAND.text, fontWeight: 630 }}>
-                  {breakEvenMonth}
-                </span>
-              </div>
-              <div className="mt-1 text-xs" style={{ color: BRAND.muted }}>
-                Savings match total costs to date.
+              <div className="mt-2 pt-3 space-y-1.5 text-xs" style={{ color: BRAND.muted }}>
+                <div>
+                  Approx. month{" "}
+                  <span className="font-[630]" style={{ color: BRAND.text, fontWeight: 630 }}>
+                    {breakEvenMonth}
+                  </span>
+                </div>
+                <div>Includes:
+                  <ul>
+                    <li>Annual licence</li>
+                    <li>One-off implementation & training</li>
+                  </ul>
+                  </div>
               </div>
             </>
           )}
@@ -129,6 +206,7 @@ export function DashboardBody({
           title={staticSchoolRoiTile ? "Year 1 ROI" : roiAnimating ? `Year ${roiYearShown} ROI` : "Year 1 ROI"}
           clickable={!staticSchoolRoiTile}
           onClick={staticSchoolRoiTile ? undefined : onStartRoiAnimation}
+          bodyClassName={staticSchoolRoiTile ? "flex h-full flex-col" : undefined}
         >
           <div
             className="text-2xl font-extrabold"
@@ -136,9 +214,14 @@ export function DashboardBody({
           >
             {formatPct(staticSchoolRoiTile ? schoolView.roiYear1 : displayedRoi)}
           </div>
-          <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
+          <div className="mt-2 pt-3 space-y-1.5 text-xs" style={{ color: BRAND.muted }}>
             {staticSchoolRoiTile
-              ? "Includes annual licence, implementation and training costs."
+              ? (
+                <>
+                  <span className="block">Includes annual licence</span>
+                  <span className="block">Implementation and training costs</span>
+                </>
+              )
               : roiAnimating
                 ? "Animating Year 1 → Year 5"
                 : "Click to animate to Year 5"}
@@ -146,13 +229,13 @@ export function DashboardBody({
         </Card>
 
         {staticSchoolRoiTile ? (
-          <Card title="5-year net impact">
+          <Card title="5-year net impact" bodyClassName="flex h-full flex-col">
             <div className="text-2xl font-extrabold" style={{ color: BRAND.text, fontWeight: 630 }}>
               {formatGBP(schoolView.impact5Year)}
             </div>
-            <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
-              Assumes steady adoption, with higher costs in Year 1 and stable costs and savings
-              thereafter.
+            <div className="mt-2 pt-3 space-y-1.5 text-xs" style={{ color: BRAND.muted }}>
+              <span className="block">Assumes steady adoption</span>
+              <span className="block">Higher costs in Year 1, then stable costs and savings</span>
             </div>
           </Card>
         ) : null}
@@ -225,38 +308,105 @@ export function DashboardBody({
 
           <div className="mt-3 h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={cumulativeNetData}
-                margin={{ top: 8, right: 24, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="year"
-                  interval={0}
-                  tickMargin={8}
-                />
-                <YAxis
-                  width={52}
-                  tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`}
-                />
-                <Tooltip
-                  formatter={(value: number | string | undefined) =>
-                    formatGBP(Number(value ?? 0))
-                  }
-                />
-                <Line
-                  type="linear"
-                  dataKey="cumulativeNet"
-                  stroke={BRAND.blue}
-                  strokeWidth={3}
-                  dot={false}
-                />
-              </LineChart>
+              {staticSchoolRoiTile && schoolMonthlyCumulativeNetData ? (
+                <LineChart
+                  data={schoolDisplayChartData}
+                  margin={{ top: 8, right: 24, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    type="number"
+                    dataKey="month"
+                    domain={[0, 60]}
+                    ticks={SCHOOL_MONTHLY_CHART_TICKS}
+                    tickMargin={8}
+                    tickFormatter={(value) => {
+                      const month = Number(value);
+                      if (month === 0) return "Initial investment";
+                      if (month % 12 === 0) return `Year ${month / 12}`;
+                      return "";
+                    }}
+                  />
+                  <YAxis
+                    width={52}
+                    tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`}
+                  />
+                  <Tooltip
+                    labelFormatter={(label) => {
+                      const month = Number(label);
+                      if (month === 0) return "Initial investment";
+                      return `Month ${month}`;
+                    }}
+                    formatter={(
+                      _value: number | string | undefined,
+                      _name: string | undefined,
+                      item: { payload?: { cumulativeNet?: number } } | undefined
+                    ) => [formatGBP(Number(item?.payload?.cumulativeNet ?? 0)), "Net impact"]}
+                  />
+                  <ReferenceLine y={0} stroke={BRAND.border} strokeWidth={1.5} />
+                  {schoolBreakEvenPoint ? (
+                    <ReferenceDot
+                      x={schoolBreakEvenPoint.month}
+                      y={schoolBreakEvenPoint.cumulativeNet}
+                      r={4}
+                      fill={BRAND.purple}
+                      stroke="#FFFFFF"
+                      strokeWidth={2}
+                      label={{
+                        value: "Break-even",
+                        position: "top",
+                        fill: BRAND.purple,
+                        fontSize: 12,
+                      }}
+                    />
+                  ) : null}
+                  <Line
+                    type="linear"
+                    dataKey="displayCumulativeNet"
+                    stroke={BRAND.blue}
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              ) : (
+                <LineChart
+                  data={cumulativeNetData}
+                  margin={{ top: 8, right: 24, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="year"
+                    interval={0}
+                    tickMargin={8}
+                  />
+                  <YAxis
+                    width={52}
+                    tickFormatter={(value) => `${Math.round(Number(value) / 1000)}k`}
+                  />
+                  <Tooltip
+                    formatter={(value: number | string | undefined) =>
+                      formatGBP(Number(value ?? 0))
+                    }
+                  />
+                  <Line
+                    type="linear"
+                    dataKey="cumulativeNet"
+                    stroke={BRAND.blue}
+                    strokeWidth={3}
+                    dot={false}
+                  />
+                </LineChart>
+              )}
             </ResponsiveContainer>
           </div>
 
           <div className="mt-3 text-xs" style={{ color: BRAND.muted }}>
-            Cumulative net impact after total costs.
+            {staticSchoolRoiTile && schoolMonthlyCumulativeNetData
+              ? "Shows the path from initial investment to break-even and long-term net impact."
+              : "Cumulative net impact after total costs."}
           </div>
         </div>
 

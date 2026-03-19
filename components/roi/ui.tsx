@@ -40,11 +40,13 @@ export function Card({
   children,
   onClick,
   clickable,
+  bodyClassName,
 }: {
   title: string;
   children: ReactNode;
   onClick?: () => void;
   clickable?: boolean;
+  bodyClassName?: string;
 }) {
   return (
     <div
@@ -60,7 +62,7 @@ export function Card({
       <div className="text-sm font-semibold" style={{ color: BRAND.muted }}>
         {title}
       </div>
-      <div className="mt-2">{children}</div>
+      <div className={bodyClassName ? `mt-2 ${bodyClassName}` : "mt-2"}>{children}</div>
     </div>
   );
 }

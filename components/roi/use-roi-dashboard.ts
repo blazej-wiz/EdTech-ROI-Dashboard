@@ -307,6 +307,7 @@ export function useRoiDashboard() {
     roiYearShown,
     roiColor,
     timeReallocationData,
+    schoolMonthlyCumulativeNetData,
     cumulativeNetData,
     breakEvenMonth,
     startRoiAnimation,
