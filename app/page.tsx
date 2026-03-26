@@ -4,7 +4,7 @@ import { InputsPanel } from "@/components/roi/inputs-panel";
 import { InternalDashboard } from "@/components/roi/internal-dashboard";
 import { PageHeader } from "@/components/roi/page-header";
 import { SchoolDashboard } from "@/components/roi/school-dashboard";
-import { BRAND } from "@/components/roi/ui";
+import { BRAND, DASHBOARD_FRAME_CLASS } from "@/components/roi/ui";
 import { useRoiDashboard } from "@/components/roi/use-roi-dashboard";
 
 export default function Page() {
@@ -27,7 +27,9 @@ export default function Page() {
         hasUncalculatedChanges={dashboard.hasUncalculatedChanges}
       />
 
-      <main className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 pb-10 lg:grid-cols-3">
+      <main
+        className={`${DASHBOARD_FRAME_CLASS} grid grid-cols-1 gap-6 pb-10 lg:grid-cols-3 xl:grid-cols-[minmax(20rem,21rem)_minmax(0,1fr)]`}
+      >
         <div className="space-y-4 lg:col-span-1">
           <InputsPanel
             viewMode={dashboard.viewMode}
@@ -42,7 +44,7 @@ export default function Page() {
           />
         </div>
 
-        <div className="space-y-6 lg:col-span-2">
+        <div className="space-y-6 lg:col-span-2 xl:col-span-1">
           {dashboard.viewMode === "school" ? (
             <SchoolDashboard
               schoolView={dashboard.schoolView}

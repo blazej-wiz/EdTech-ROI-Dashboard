@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { BRAND } from "./ui";
+import { BRAND, DASHBOARD_FRAME_CLASS } from "./ui";
 import type { RoiViewMode } from "./use-roi-dashboard";
 
 type PageHeaderProps = {
@@ -13,8 +13,13 @@ export function PageHeader({
   onViewChange,
   hasUncalculatedChanges,
 }: PageHeaderProps) {
+  const headerSummary =
+    viewMode === "school"
+      ? "Cash ROI is based on supply cover and recruitment or replacement savings. Teacher time is shown separately and excluded from cash ROI."
+      : "ROI is based on savings from supply cover and attrition reduction. Teacher time is shown separately as educational value and £-equivalent value.";
+
   return (
-    <header className="mx-auto max-w-7xl px-4 py-8">
+    <header className={`${DASHBOARD_FRAME_CLASS} py-8`}>
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-[40px_1fr] gap-x-3 gap-y-2">
           <div className="relative h-10 w-10 shrink-0">
@@ -32,9 +37,7 @@ export function PageHeader({
               My Smart Teach ROI Dashboard
             </h1>
             <p className="text-sm" style={{ color: BRAND.muted }}>
-              ROI is based on savings from <span className="font-semibold">supply cover</span> and{" "}
-              <span className="font-semibold">attrition reduction</span>. Teacher time is shown
-              separately as educational value and £-equivalent value.
+              {headerSummary}
             </p>
           </div>
 

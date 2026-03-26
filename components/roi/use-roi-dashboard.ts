@@ -62,7 +62,7 @@ function buildMonthlyCumulativeNetData(
   const monthlySavings = annualSavingsCash / 12;
   const initialContractCost = recurringAnnualCost + trainingOneTime + setupOneTime;
   let cumulativeNet = -initialContractCost;
-  const data = [{ month: 0, cumulativeNet: Math.round(cumulativeNet) }];
+  const data = [{ month: 0, cumulativeNet }];
 
   for (let month = 1; month <= 60; month += 1) {
     if (month > 1 && (month - 1) % 12 === 0) {
@@ -72,7 +72,7 @@ function buildMonthlyCumulativeNetData(
     cumulativeNet += monthlySavings;
     data.push({
       month,
-      cumulativeNet: Math.round(cumulativeNet),
+      cumulativeNet,
     });
   }
 
@@ -96,7 +96,7 @@ function calculateBreakEvenMonth(
 
     if (previousNet < 0 && currentNet >= 0) {
       const exactMonths = (index - 1) + Math.abs(previousNet) / monthlySavings;
-      return Math.max(1, Math.round(exactMonths));
+      return Math.max(1, exactMonths);
     }
   }
 
@@ -197,12 +197,12 @@ export function useRoiDashboard() {
 
     return [
       {
-        scenario: "Before AI",
+        scenario: "Before MySmartTeach",
         remaining: baselineAffected,
         freedRange: [baselineAffected, baselineAffected] as [number, number],
       },
       {
-        scenario: "With AI",
+        scenario: "With MySmartTeach",
         remaining,
         freedRange: [remaining, baselineAffected] as [number, number],
       },

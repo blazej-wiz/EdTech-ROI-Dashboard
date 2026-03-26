@@ -16,6 +16,8 @@ export const BRAND = {
   bad: "#B91C1C",
 } as const;
 
+export const DASHBOARD_FRAME_CLASS = "mx-auto w-full max-w-[87rem] px-4";
+
 export function formatGBP(n: number) {
   const value = Number.isFinite(n) ? n : 0;
   return new Intl.NumberFormat("en-GB", {
@@ -42,7 +44,7 @@ export function Card({
   clickable,
   bodyClassName,
 }: {
-  title: string;
+  title: ReactNode;
   children: ReactNode;
   onClick?: () => void;
   clickable?: boolean;

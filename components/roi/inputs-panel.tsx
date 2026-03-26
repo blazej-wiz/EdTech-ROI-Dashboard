@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, type Dispatch, type SetStateAction } from "react";
 import type { AiCostingMode, Inputs, ScenarioPreset, SubjectPreset } from "@/lib/calc";
 import { BRAND, InputRow, SectionHeader, SelectInput, TextInput } from "./ui";
 import type { RawInputState, RoiViewMode } from "./use-roi-dashboard";
@@ -26,6 +26,12 @@ export function InputsPanel({
   onApply,
   onReset,
 }: InputsPanelProps) {
+  useEffect(() => {
+    if (viewMode === "school" && draft.preset === "Custom") {
+      setDraft((current) => ({ ...current, preset: "Expected" }));
+    }
+  }, [draft.preset, setDraft, viewMode]);
+
   function updateDraft<K extends keyof Inputs>(field: K, value: Inputs[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
   }
@@ -139,7 +145,10 @@ export function InputsPanel({
           />
         </InputRow>
 
-        <InputRow label="Scenario preset">
+        <InputRow
+          label="Scenario preset"
+          hint={viewMode === "school" ? "Predefined assumption set for the School view" : undefined}
+        >
           <SelectInput
             value={draft.preset}
             onChange={(e) => updateDraft("preset", e.target.value as ScenarioPreset)}
@@ -147,7 +156,7 @@ export function InputsPanel({
             <option value="Conservative">Conservative</option>
             <option value="Expected">Expected</option>
             <option value="Ambitious">Ambitious</option>
-            <option value="Custom">Custom</option>
+            {viewMode === "internal" ? <option value="Custom">Custom</option> : null}
           </SelectInput>
         </InputRow>
 
@@ -418,7 +427,10 @@ export function InputsPanel({
           <div className="space-y-5">
             <SectionHeader>Absence & cover</SectionHeader>
 
-            <InputRow label="Average teacher sick days per year">
+            <InputRow
+              label="Average teacher sick days per year"
+              hint="Average teacher sickness absence days per teacher, per year"
+            >
               <TextInput
                 type="number"
                 min={0}
@@ -427,7 +439,10 @@ export function InputsPanel({
               />
             </InputRow>
 
-            <InputRow label="Supply cover cost per day (£)">
+            <InputRow
+              label="Supply cover cost per day (£)"
+              hint="Average daily cost when teacher absence requires cover"
+            >
               <TextInput
                 type="number"
                 min={0}
@@ -451,7 +466,10 @@ export function InputsPanel({
               />
             </InputRow>
 
-            <InputRow label="Replacement cost per teacher (£)">
+            <InputRow
+              label="Replacement cost per teacher (£)"
+              hint="Recruitment and onboarding cost when a teacher must be replaced"
+            >
               <TextInput
                 type="number"
                 min={0}
