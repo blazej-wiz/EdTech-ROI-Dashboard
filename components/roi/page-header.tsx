@@ -5,22 +5,17 @@ import type { RoiViewMode } from "./use-roi-dashboard";
 type PageHeaderProps = {
   viewMode: RoiViewMode;
   onViewChange: (mode: RoiViewMode) => void;
-  hasUncalculatedChanges: boolean;
 };
 
-export function PageHeader({
-  viewMode,
-  onViewChange,
-  hasUncalculatedChanges,
-}: PageHeaderProps) {
+export function PageHeader({ viewMode, onViewChange }: PageHeaderProps) {
   const headerSummary =
     viewMode === "school"
       ? "Cash ROI is based on supply cover and recruitment or replacement savings. Teacher time is shown separately and excluded from cash ROI."
       : "ROI is based on savings from supply cover and attrition reduction. Teacher time is shown separately as educational value and £-equivalent value.";
 
   return (
-    <header className={`${DASHBOARD_FRAME_CLASS} py-8`}>
-      <div className="flex flex-col gap-3">
+    <header className={`${DASHBOARD_FRAME_CLASS} py-7`}>
+      <div className="flex flex-col gap-2">
         <div className="grid grid-cols-[40px_1fr] gap-x-3 gap-y-2">
           <div className="relative h-10 w-10 shrink-0">
             <Image
@@ -72,31 +67,6 @@ export function PageHeader({
             </div>
           </div>
         </div>
-
-        {hasUncalculatedChanges ? (
-          <div
-            className="inline-flex w-fit items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
-            style={{
-              background: "#FFF7ED",
-              color: "#9A3412",
-              border: "1px solid #FED7AA",
-            }}
-          >
-            Unsaved changes — click <span className="font-[630]">Calculate</span> to update
-            results
-          </div>
-        ) : (
-          <div
-            className="inline-flex w-fit items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold"
-            style={{
-              background: "#ECFDF5",
-              color: "#065F46",
-              border: "1px solid #A7F3D0",
-            }}
-          >
-            Results up to date
-          </div>
-        )}
       </div>
     </header>
   );

@@ -1,22 +1,31 @@
 "use client";
 
+import packageJson from "@/package.json";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildAssumptionsGovernanceSummary,
+  buildInternalAdminSummary,
   buildInternalView,
   buildSchoolView,
   createModel,
   DEFAULTS,
+  GOVERNANCE_UPDATED_DATE,
+  GOVERNANCE_VERSION,
   type Inputs,
+  type ScenarioPreset,
 } from "@/lib/calc";
 import { BRAND } from "./ui";
 
 export type RoiViewMode = "school" | "internal";
 export type RawInputState = Partial<Record<keyof Inputs, string>>;
-
-type MonthlyCumulativeNetPoint = {
-  month: number;
-  cumulativeNet: number;
-};
+export type PercentDraftField =
+  | "adoptionRate"
+  | "examParticipationRate"
+  | "attritionRate"
+  | "markingReductionCustom"
+  | "otherReductionCustom"
+  | "sickdayReductionCustom"
+  | "attritionReductionCustom";
 
 function shallowEqual(a: unknown, b: unknown) {
   try {
@@ -53,54 +62,12 @@ function sanitizeInputs(draft: Inputs): Inputs {
   };
 }
 
-function buildMonthlyCumulativeNetData(
-  annualSavingsCash: number,
-  recurringAnnualCost: number,
-  trainingOneTime: number,
-  setupOneTime: number
-): MonthlyCumulativeNetPoint[] {
-  const monthlySavings = annualSavingsCash / 12;
-  const initialContractCost = recurringAnnualCost + trainingOneTime + setupOneTime;
-  let cumulativeNet = -initialContractCost;
-  const data = [{ month: 0, cumulativeNet }];
-
-  for (let month = 1; month <= 60; month += 1) {
-    if (month > 1 && (month - 1) % 12 === 0) {
-      cumulativeNet -= recurringAnnualCost;
-    }
-
-    cumulativeNet += monthlySavings;
-    data.push({
-      month,
-      cumulativeNet,
-    });
-  }
-
-  return data;
-}
-
-function calculateBreakEvenMonth(
-  annualSavingsCash: number,
-  monthlyCumulativeNetData: MonthlyCumulativeNetPoint[]
-) {
-  const monthlySavings = annualSavingsCash / 12;
-  if (monthlySavings <= 0) return null;
-
-  for (let index = 1; index < monthlyCumulativeNetData.length; index += 1) {
-    const previousNet = monthlyCumulativeNetData[index - 1]?.cumulativeNet ?? 0;
-    const currentNet = monthlyCumulativeNetData[index]?.cumulativeNet ?? 0;
-
-    if (previousNet >= 0) {
-      return 0;
-    }
-
-    if (previousNet < 0 && currentNet >= 0) {
-      const exactMonths = (index - 1) + Math.abs(previousNet) / monthlySavings;
-      return Math.max(1, exactMonths);
-    }
-  }
-
-  return null;
+function formatGeneratedDate(date: Date) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 export function useRoiDashboard() {
@@ -121,23 +88,42 @@ export function useRoiDashboard() {
   const model = useMemo(() => createModel(applied), [applied]);
   const schoolView = useMemo(() => buildSchoolView(model), [model]);
   const internalView = useMemo(() => buildInternalView(model), [model]);
-
-  const internalEcon = useMemo(() => {
-    const licence = internalView.costs.licenceFeeAnnual ?? 0;
-    const inference = internalView.costs.aiInferenceCostAnnual ?? 0;
-    const grossMargin = licence - inference;
-    const marginPct = licence > 0 ? grossMargin / licence : null;
-
-    return {
-      licence,
-      inference,
-      grossMargin,
-      marginPct,
-    };
-  }, [
-    internalView.costs.aiInferenceCostAnnual,
-    internalView.costs.licenceFeeAnnual,
-  ]);
+  const outputMetadata = useMemo(
+    () => ({
+      modelVersion: packageJson.version,
+      assumptionSetVersion: GOVERNANCE_VERSION,
+      generatedDate: formatGeneratedDate(new Date()),
+      lastUpdated: GOVERNANCE_UPDATED_DATE,
+      defaultsSourceNote:
+        "Governed defaults are maintained locally in the Internal admin assumptions registry for now.",
+      propagationNote:
+        "When recalculated, governed assumption changes propagate to both School and Internal outputs.",
+      includedNotes: [
+        "Cash savings from supply cover and recruitment or replacement costs.",
+        "Year 1 and 5-year outputs based on the active internal or school cost basis.",
+      ],
+      excludedNotes: [
+        "Educational value is shown separately and excluded from cash ROI and break-even.",
+        "Fully loaded operating costs are not yet included in the internal contribution summary.",
+      ],
+    }),
+    []
+  );
+  const internalAdminSummary = useMemo(
+    () => buildInternalAdminSummary(model, outputMetadata),
+    [model, outputMetadata]
+  );
+  const draftAssumptionsGovernance = useMemo(
+    () =>
+      buildAssumptionsGovernanceSummary(draft, {
+        assumptionSetVersion: outputMetadata.assumptionSetVersion,
+        generatedDate: outputMetadata.generatedDate,
+        lastUpdated: outputMetadata.lastUpdated,
+        defaultsSourceNote: outputMetadata.defaultsSourceNote,
+        propagationNote: outputMetadata.propagationNote,
+      }),
+    [draft, outputMetadata]
+  );
 
   const displayedRoi =
     (viewMode === "school" ? model.schoolRoiByYear : model.internalRoiByYear)[roiYearShown - 1] ??
@@ -215,63 +201,69 @@ export function useRoiDashboard() {
     internalView.educationalValue.weeklyMarkingHoursSavedPerTeacher,
   ]);
 
-  const schoolMonthlyCumulativeNetData = useMemo(() => buildMonthlyCumulativeNetData(
-    internalView.cashSavings.annualSavingsCash,
-    internalView.costs.school.recurringAnnualCost,
-    internalView.costs.trainingOneTime,
-    internalView.costs.setupOneTime
-  ), [
-    internalView.cashSavings.annualSavingsCash,
-    internalView.costs.school.recurringAnnualCost,
-    internalView.costs.setupOneTime,
-    internalView.costs.trainingOneTime,
-  ]);
-
-  const internalMonthlyCumulativeNetData = useMemo(() => buildMonthlyCumulativeNetData(
-    internalView.cashSavings.annualSavingsCash,
-    internalView.costs.internal.recurringAnnualCost,
-    internalView.costs.trainingOneTime,
-    internalView.costs.setupOneTime
-  ), [
-    internalView.cashSavings.annualSavingsCash,
-    internalView.costs.internal.recurringAnnualCost,
-    internalView.costs.setupOneTime,
-    internalView.costs.trainingOneTime,
-  ]);
-
+  const schoolMonthlyCumulativeNetData = model.schoolProjectionSummary.monthlyCumulativeNetData;
   const schoolCumulativeNetData = useMemo(
     () =>
-      model.schoolProjection5y.map((row) => ({
+      model.schoolProjectionSummary.projection5y.map((row) => ({
         year: `Year ${row.year}`,
         cumulativeNet: Math.round(row.cumulativeNetBenefit),
       })),
-    [model.schoolProjection5y]
+    [model.schoolProjectionSummary.projection5y]
   );
-
   const internalCumulativeNetData = useMemo(
     () =>
-      internalView.projection5y.map((row) => ({
+      internalAdminSummary.projectionSummary.projection5y.map((row) => ({
         year: `Year ${row.year}`,
         cumulativeNet: Math.round(row.cumulativeNetBenefit),
       })),
-    [internalView.projection5y]
+    [internalAdminSummary.projectionSummary.projection5y]
   );
 
   const cumulativeNetData = viewMode === "school" ? schoolCumulativeNetData : internalCumulativeNetData;
+  const breakEvenMonth =
+    viewMode === "school"
+      ? model.schoolProjectionSummary.breakEvenMonth
+      : internalAdminSummary.projectionSummary.breakEvenMonth;
 
-  const breakEvenMonth = useMemo(
-    () =>
-      calculateBreakEvenMonth(
-        internalView.cashSavings.annualSavingsCash,
-        viewMode === "school" ? schoolMonthlyCumulativeNetData : internalMonthlyCumulativeNetData
-      ),
-    [
-      internalView.cashSavings.annualSavingsCash,
-      internalMonthlyCumulativeNetData,
-      schoolMonthlyCumulativeNetData,
-      viewMode,
-    ]
-  );
+  function updateDraftField<K extends keyof Inputs>(field: K, value: Inputs[K]) {
+    setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateDraftNumberField<K extends keyof Inputs>(field: K, rawValue: string) {
+    setRawInputs((current) => ({ ...current, [field]: rawValue }));
+
+    if (rawValue === "") {
+      updateDraftField(field, 0 as Inputs[K]);
+      return;
+    }
+
+    const parsed = Number(rawValue);
+    updateDraftField(field, (Number.isFinite(parsed) ? parsed : 0) as Inputs[K]);
+  }
+
+  function updateDraftPercentField(field: PercentDraftField, rawValue: string) {
+    setRawInputs((current) => ({ ...current, [field]: rawValue }));
+
+    if (rawValue === "") {
+      updateDraftField(field, 0 as Inputs[typeof field]);
+      return;
+    }
+
+    const parsed = Number(rawValue);
+    updateDraftField(field, (Number.isFinite(parsed) ? parsed / 100 : 0) as Inputs[typeof field]);
+  }
+
+  function updateDraftPreset(preset: ScenarioPreset) {
+    setDraft((current) => ({ ...current, preset }));
+  }
+
+  function getNumberValue<K extends keyof Inputs>(field: K) {
+    return rawInputs[field] ?? String(draft[field]);
+  }
+
+  function getPercentValue(field: PercentDraftField) {
+    return rawInputs[field] ?? String(Number(draft[field]) * 100);
+  }
 
   function applyDraft() {
     const sanitized = sanitizeInputs(draft);
@@ -301,7 +293,8 @@ export function useRoiDashboard() {
     hasUncalculatedChanges,
     schoolView,
     internalView,
-    internalEcon,
+    internalAdminSummary,
+    draftAssumptionsGovernance,
     displayedRoi,
     roiAnimating,
     roiYearShown,
@@ -310,6 +303,12 @@ export function useRoiDashboard() {
     schoolMonthlyCumulativeNetData,
     cumulativeNetData,
     breakEvenMonth,
+    updateDraftField,
+    updateDraftNumberField,
+    updateDraftPercentField,
+    updateDraftPreset,
+    getNumberValue,
+    getPercentValue,
     startRoiAnimation,
     applyDraft,
     resetToDefaults,

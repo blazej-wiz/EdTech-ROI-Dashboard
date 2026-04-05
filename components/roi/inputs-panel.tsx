@@ -5,6 +5,7 @@ import type { RawInputState, RoiViewMode } from "./use-roi-dashboard";
 
 type InputsPanelProps = {
   viewMode: RoiViewMode;
+  hasUncalculatedChanges: boolean;
   draft: Inputs;
   setDraft: Dispatch<SetStateAction<Inputs>>;
   rawInputs: RawInputState;
@@ -17,6 +18,7 @@ type InputsPanelProps = {
 
 export function InputsPanel({
   viewMode,
+  hasUncalculatedChanges,
   draft,
   setDraft,
   rawInputs,
@@ -170,6 +172,25 @@ export function InputsPanel({
         >
           Calculate
         </button>
+
+        {viewMode === "school" ? (
+          <div
+            className="flex items-center gap-2 px-1 text-xs"
+            style={{ color: hasUncalculatedChanges ? "#9A3412" : "#065F46" }}
+          >
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{
+                background: hasUncalculatedChanges ? "#F59E0B" : "#22C55E",
+              }}
+            />
+            <span>
+              {hasUncalculatedChanges
+                ? "Inputs changed. Click Calculate to refresh results."
+                : "Results are up to date with the current inputs."}
+            </span>
+          </div>
+        ) : null}
 
         <button
           className="w-full rounded-2xl px-4 py-2 text-sm font-semibold transition"

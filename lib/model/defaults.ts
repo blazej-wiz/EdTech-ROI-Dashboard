@@ -10,6 +10,7 @@ export const DEFAULTS: Inputs = {
   weeklyMarkingHours: 10,
   weeklyAiAdminHours: 8,
   preset: "Expected",
+  schoolTypePreset: "Secondary",
   markingReductionCustom: 0.45,
   otherReductionCustom: 0.25,
   sickdayReductionCustom: 0.05,

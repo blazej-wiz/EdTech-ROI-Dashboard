@@ -24,28 +24,28 @@ export default function Page() {
       <PageHeader
         viewMode={dashboard.viewMode}
         onViewChange={dashboard.setViewMode}
-        hasUncalculatedChanges={dashboard.hasUncalculatedChanges}
       />
 
-      <main
-        className={`${DASHBOARD_FRAME_CLASS} grid grid-cols-1 gap-6 pb-10 lg:grid-cols-3 xl:grid-cols-[minmax(20rem,21rem)_minmax(0,1fr)]`}
-      >
-        <div className="space-y-4 lg:col-span-1">
-          <InputsPanel
-            viewMode={dashboard.viewMode}
-            draft={dashboard.draft}
-            setDraft={dashboard.setDraft}
-            rawInputs={dashboard.rawInputs}
-            setRawInputs={dashboard.setRawInputs}
-            showAdvanced={dashboard.showAdvanced}
-            onToggleAdvanced={() => dashboard.setShowAdvanced((value) => !value)}
-            onApply={dashboard.applyDraft}
-            onReset={dashboard.resetToDefaults}
-          />
-        </div>
+      {dashboard.viewMode === "school" ? (
+        <main
+          className={`${DASHBOARD_FRAME_CLASS} grid grid-cols-1 gap-6 pb-10 lg:grid-cols-3 xl:grid-cols-[minmax(20rem,21rem)_minmax(0,1fr)]`}
+        >
+          <div className="space-y-4 lg:col-span-1">
+            <InputsPanel
+              viewMode={dashboard.viewMode}
+              hasUncalculatedChanges={dashboard.hasUncalculatedChanges}
+              draft={dashboard.draft}
+              setDraft={dashboard.setDraft}
+              rawInputs={dashboard.rawInputs}
+              setRawInputs={dashboard.setRawInputs}
+              showAdvanced={dashboard.showAdvanced}
+              onToggleAdvanced={() => dashboard.setShowAdvanced((value) => !value)}
+              onApply={dashboard.applyDraft}
+              onReset={dashboard.resetToDefaults}
+            />
+          </div>
 
-        <div className="space-y-6 lg:col-span-2 xl:col-span-1">
-          {dashboard.viewMode === "school" ? (
+          <div className="space-y-6 lg:col-span-2 xl:col-span-1">
             <SchoolDashboard
               schoolView={dashboard.schoolView}
               internalView={dashboard.internalView}
@@ -60,25 +60,24 @@ export default function Page() {
               roiColor={dashboard.roiColor}
               onStartRoiAnimation={dashboard.startRoiAnimation}
             />
-          ) : (
-            <InternalDashboard
-              schoolView={dashboard.schoolView}
-              internalView={dashboard.internalView}
-              internalEcon={dashboard.internalEcon}
-              applied={dashboard.applied}
-              timeReallocationData={dashboard.timeReallocationData}
-              schoolMonthlyCumulativeNetData={dashboard.schoolMonthlyCumulativeNetData}
-              cumulativeNetData={dashboard.cumulativeNetData}
-              breakEvenMonth={dashboard.breakEvenMonth}
-              displayedRoi={dashboard.displayedRoi}
-              roiAnimating={dashboard.roiAnimating}
-              roiYearShown={dashboard.roiYearShown}
-              roiColor={dashboard.roiColor}
-              onStartRoiAnimation={dashboard.startRoiAnimation}
-            />
-          )}
-        </div>
-      </main>
+          </div>
+        </main>
+      ) : (
+        <main className={`${DASHBOARD_FRAME_CLASS} pb-12`}>
+          <InternalDashboard
+            internalAdminSummary={dashboard.internalAdminSummary}
+            draftAssumptionsGovernance={dashboard.draftAssumptionsGovernance}
+            hasUncalculatedChanges={dashboard.hasUncalculatedChanges}
+            onApplyGovernance={dashboard.applyDraft}
+            onResetGovernance={dashboard.resetToDefaults}
+            onUpdateNumberField={dashboard.updateDraftNumberField}
+            onUpdatePercentField={dashboard.updateDraftPercentField}
+            onUpdateSelectField={dashboard.updateDraftField}
+            getNumberValue={dashboard.getNumberValue}
+            getPercentValue={dashboard.getPercentValue}
+          />
+        </main>
+      )}
     </div>
   );
 }

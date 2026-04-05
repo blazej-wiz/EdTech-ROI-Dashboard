@@ -20,10 +20,8 @@ export function createModel(raw: Partial<Inputs>): RoiModel {
   const costs = calculateCosts(inputs, usage);
   const schoolYear1 = calculateYear1Metrics(adoption, cashSavings, costs, costs.school);
   const internalYear1 = calculateYear1Metrics(adoption, cashSavings, costs, costs.internal);
-  const { projection5y: schoolProjection5y, roiByYear: schoolRoiByYear } =
-    calculateProjection5y(cashSavings, costs.school);
-  const { projection5y: internalProjection5y, roiByYear: internalRoiByYear } =
-    calculateProjection5y(cashSavings, costs.internal);
+  const schoolProjectionSummary = calculateProjection5y(cashSavings, costs.school);
+  const internalProjectionSummary = calculateProjection5y(cashSavings, costs.internal);
   const sensitivities = calculateSensitivities(inputs, adoption, cashSavings);
 
   return {
@@ -36,10 +34,12 @@ export function createModel(raw: Partial<Inputs>): RoiModel {
     costs,
     schoolYear1,
     internalYear1,
-    schoolProjection5y,
-    schoolRoiByYear,
-    internalProjection5y,
-    internalRoiByYear,
+    schoolProjectionSummary,
+    schoolProjection5y: schoolProjectionSummary.projection5y,
+    schoolRoiByYear: schoolProjectionSummary.roiByYear,
+    internalProjectionSummary,
+    internalProjection5y: internalProjectionSummary.projection5y,
+    internalRoiByYear: internalProjectionSummary.roiByYear,
     sensitivities,
   };
 }
@@ -52,7 +52,7 @@ export function calculate(raw: Partial<Inputs>): Outputs {
     adoptedTeachers: model.adoption.adoptedTeachers,
     aiSubscriptionAnnual: model.costs.internal.recurringAnnualCost,
     licenceFeeAnnual: model.costs.licenceFeeAnnual,
-    aiInferenceCostAnnual: model.costs.aiInferenceCostAnnual,
+    aiInferenceCostAnnual: model.costs.aiInferenceCostAnnualInModel,
     aiCostingMode: model.costs.aiCostingMode,
     schoolRecurringAnnualCost: model.costs.school.recurringAnnualCost,
     schoolTotalCostYear1: model.costs.school.totalCostYear1,

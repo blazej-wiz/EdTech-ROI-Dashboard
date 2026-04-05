@@ -355,7 +355,7 @@ export function DashboardBody({
           className="rounded-2xl p-5 shadow-sm"
           style={{ background: BRAND.card, border: `1px solid ${BRAND.border}` }}
         >
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div className="text-[1.1rem] font-[640]" style={{ color: BRAND.text, fontWeight:640 }}>
               Investment summary
             </div>

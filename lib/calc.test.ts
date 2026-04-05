@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildAssumptionsGovernanceSummary,
+  buildInternalAdminSummary,
   buildInternalView,
   buildSchoolView,
   calculate,
@@ -184,5 +186,102 @@ describe("refactored model rules", () => {
     closeTo(school.annualSavingsCash, internal.cashSavings.annualSavingsCash);
     closeTo(school.totalCostYear1, internal.costs.school.totalCostYear1);
     closeTo(school.annualHoursSavedTotal, internal.educationalValue.annualHoursSavedTotal);
+  });
+
+  it("internal admin summary exposes grouped internal breakdowns and metadata", () => {
+    const model = createModel(DEFAULTS);
+    const summary = buildInternalAdminSummary(model, {
+      modelVersion: "0.1.0",
+      assumptionSetVersion: "2026.03-phase2",
+      generatedDate: "27 March 2026",
+      defaultsSourceNote: "Governed defaults note",
+      propagationNote: "Propagation note",
+      lastUpdated: "27 March 2026",
+      includedNotes: ["Included note"],
+      excludedNotes: ["Excluded note"],
+    });
+
+    closeTo(summary.year1CostBreakdown.total, model.costs.internal.totalCostYear1);
+    closeTo(summary.ongoingCostBreakdown.total, model.costs.internal.recurringAnnualCost);
+    closeTo(summary.cashSavingsBreakdown.total, model.cashSavings.annualSavingsCash);
+    expect(summary.qaChecks.checks.length).toBeGreaterThanOrEqual(6);
+    expect(summary.outputMetadata.modelVersion).toBe("0.1.0");
+    expect(summary.assumptionsGovernance.activeScenarioPreset).toBe(DEFAULTS.preset);
+  });
+
+  it("simple pricing mode keeps internal commercial summary on the same active cost basis as ROI", () => {
+    const model = createModel({
+      ...DEFAULTS,
+      aiCostingMode: "SimplePricing",
+      gbpPer1MInputTokens: 4,
+      gbpPer1MOutputTokens: 5,
+    });
+    const summary = buildInternalAdminSummary(model, {
+      modelVersion: "0.1.0",
+      assumptionSetVersion: "2026.03-phase2",
+      generatedDate: "27 March 2026",
+      defaultsSourceNote: "Governed defaults note",
+      propagationNote: "Propagation note",
+      lastUpdated: "27 March 2026",
+      includedNotes: ["Included note"],
+      excludedNotes: ["Excluded note"],
+    });
+
+    closeTo(summary.commercialSummary.annualAiCostInModel, 0);
+    closeTo(
+      summary.commercialSummary.recurringCostBasisInModel,
+      model.costs.internal.recurringAnnualCost
+    );
+    expect(summary.qaChecks.overallStatus).toBe("pass");
+  });
+
+  it("usage-based mode aligns projection, commercial summary, and qa checks", () => {
+    const model = createModel({
+      ...DEFAULTS,
+      aiCostingMode: "UsageBasedEstimate",
+      gbpPer1MInputTokens: 4,
+      gbpPer1MOutputTokens: 5,
+    });
+    const summary = buildInternalAdminSummary(model, {
+      modelVersion: "0.1.0",
+      assumptionSetVersion: "2026.03-phase2",
+      generatedDate: "27 March 2026",
+      defaultsSourceNote: "Governed defaults note",
+      propagationNote: "Propagation note",
+      lastUpdated: "27 March 2026",
+      includedNotes: ["Included note"],
+      excludedNotes: ["Excluded note"],
+    });
+
+    expect(summary.commercialSummary.annualAiCostInModel).toBeGreaterThan(0);
+    closeTo(
+      summary.commercialSummary.year1CostBasisInModel,
+      summary.projectionSummary.projection5y[0]?.costs ?? 0
+    );
+    expect(summary.qaChecks.checks.every((check) => check.status !== "fail")).toBe(true);
+  });
+
+  it("builds a typed governance registry with scenario and school-type context", () => {
+    const governance = buildAssumptionsGovernanceSummary(DEFAULTS, {
+      assumptionSetVersion: "2026.03-phase2",
+      generatedDate: "27 March 2026",
+      lastUpdated: "27 March 2026",
+      defaultsSourceNote: "Governed defaults note",
+      propagationNote: "Propagation note",
+    });
+
+    expect(governance.activeScenarioPreset).toBe("Expected");
+    expect(governance.activeSchoolTypePreset).toBe("Secondary");
+    expect(governance.scenarioPresets).toHaveLength(4);
+    expect(governance.schoolTypePresets.map((preset) => preset.id)).toEqual([
+      "Primary",
+      "Secondary",
+    ]);
+
+    const impactGroup = governance.groups.find((group) => group.id === "impact-assumptions");
+    expect(impactGroup?.assumptions.length).toBeGreaterThan(0);
+    expect(
+      impactGroup?.assumptions.some((assumption) => assumption.presetControlled)
+    ).toBe(true);
   });
 });

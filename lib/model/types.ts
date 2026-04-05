@@ -1,6 +1,18 @@
 export type ScenarioPreset = "Conservative" | "Expected" | "Ambitious" | "Custom";
+export type SchoolTypePreset = "Primary" | "Secondary";
 export type AiCostingMode = "SimplePricing" | "UsageBasedEstimate";
 export type SubjectPreset = "MostlyHumanities" | "Mixed" | "MostlySTEM";
+export type QaCheckStatus = "pass" | "warn" | "fail";
+export type AssumptionControlType = "number" | "percent" | "select";
+export type AssumptionGroupId =
+  | "school-profile"
+  | "assessment-usage"
+  | "impact-assumptions"
+  | "workload-time"
+  | "absence-cover"
+  | "retention-recruitment"
+  | "commercial-onboarding"
+  | "ai-usage-costing";
 
 export type Inputs = {
   students: number;
@@ -12,6 +24,7 @@ export type Inputs = {
   weeklyMarkingHours: number;
   weeklyAiAdminHours: number;
   preset: ScenarioPreset;
+  schoolTypePreset: SchoolTypePreset;
   markingReductionCustom: number;
   otherReductionCustom: number;
   sickdayReductionCustom: number;
@@ -54,6 +67,18 @@ export type YearRow = {
   netBenefit: number;
   cumulativeNetBenefit: number;
   cumulativeRoi: number | null;
+};
+
+export type MonthlyCumulativeNetPoint = {
+  month: number;
+  cumulativeNet: number;
+};
+
+export type ProjectionSummary = {
+  projection5y: YearRow[];
+  roiByYear: (number | null)[];
+  monthlyCumulativeNetData: MonthlyCumulativeNetPoint[];
+  breakEvenMonth: number | null;
 };
 
 export type SensitivityPoint = {
@@ -154,7 +179,8 @@ export type CashSavingsSummary = {
 export type CostSummary = {
   aiCostingMode: AiCostingMode;
   licenceFeeAnnual: number;
-  aiInferenceCostAnnual: number;
+  aiInferenceCostAnnualEstimate: number;
+  aiInferenceCostAnnualInModel: number;
   trainingOneTime: number;
   setupOneTime: number;
   school: CostBasis;
@@ -179,6 +205,163 @@ export type SensitivitySummary = {
   retentionImpact5Annual: number;
 };
 
+export type BreakdownRow = {
+  key: string;
+  label: string;
+  value: number;
+  displayUnit?: "currency" | "hours" | "count" | "percentage";
+  note?: string;
+};
+
+export type AssumptionOption = {
+  value: string;
+  label: string;
+};
+
+export type AssumptionGuardrails = {
+  min?: number;
+  max?: number;
+  note?: string;
+};
+
+export type GovernedAssumption = {
+  id: keyof Inputs;
+  label: string;
+  group: AssumptionGroupId;
+  value: number | string;
+  unit: string;
+  controlType: AssumptionControlType;
+  definition: string;
+  sourceNote: string;
+  schoolTypes: SchoolTypePreset[];
+  scenarioPresets?: ScenarioPreset[];
+  visibleInSchoolView: boolean;
+  visibleInInternalView: boolean;
+  includedInCashRoi?: boolean;
+  guardrails?: AssumptionGuardrails;
+  assumptionVersion: string;
+  lastUpdated?: string;
+  options?: AssumptionOption[];
+  editable: boolean;
+  helperText?: string;
+  presetValue?: number | null;
+  presetControlled?: boolean;
+};
+
+export type GovernedAssumptionGroup = {
+  id: AssumptionGroupId;
+  label: string;
+  description: string;
+  assumptions: GovernedAssumption[];
+};
+
+export type ScenarioPresetDefinition = {
+  id: ScenarioPreset;
+  label: string;
+  description: string;
+  affectedAssumptionIds: (keyof Inputs)[];
+  reductions?: Reductions;
+};
+
+export type SchoolTypePresetDefinition = {
+  id: SchoolTypePreset;
+  label: string;
+  description: string;
+  defaultsNote: string;
+  defaults: Partial<Inputs>;
+};
+
+export type AssumptionsGovernanceMetadata = {
+  assumptionSetVersion: string;
+  generatedDate: string;
+  lastUpdated: string;
+  defaultsSourceNote: string;
+  propagationNote: string;
+};
+
+export type AssumptionsGovernanceSummary = {
+  activeScenarioPreset: ScenarioPreset;
+  activeSchoolTypePreset: SchoolTypePreset;
+  groups: GovernedAssumptionGroup[];
+  scenarioPresets: ScenarioPresetDefinition[];
+  schoolTypePresets: SchoolTypePresetDefinition[];
+  metadata: AssumptionsGovernanceMetadata;
+};
+
+export type UsageContext = {
+  teachers: number;
+  students: number;
+  adoptionRate: number;
+  adoptedTeachers: number;
+  adoptedStudents: number;
+  estimatedAssessmentsAnnual: number;
+  estimatedInputTokensAnnual: number;
+  estimatedOutputTokensAnnual: number;
+  aiCostingMode: AiCostingMode;
+};
+
+export type CommercialSummary = {
+  annualLicenceRevenue: number;
+  annualAiCostEstimate: number;
+  annualAiCostInModel: number;
+  annualContributionAfterAiCost: number;
+  contributionMarginPct: number | null;
+  recurringCostBasisInModel: number;
+  year1CostBasisInModel: number;
+  costBasisLabel: string;
+  costBasisNote: string;
+};
+
+export type OutputMetadata = {
+  modelVersion: string;
+  generatedDate: string;
+  assumptionSetVersion: string;
+  defaultsSourceNote: string;
+  propagationNote: string;
+  lastUpdated: string;
+  includedNotes: string[];
+  excludedNotes: string[];
+};
+
+export type QaCheck = {
+  id: string;
+  label: string;
+  status: QaCheckStatus;
+  message: string;
+};
+
+export type QaSummary = {
+  overallStatus: QaCheckStatus;
+  counts: Record<QaCheckStatus, number>;
+  checks: QaCheck[];
+};
+
+export type InternalAdminSummary = {
+  assumptionsGovernance: AssumptionsGovernanceSummary;
+  year1CostBreakdown: {
+    rows: BreakdownRow[];
+    total: number;
+  };
+  ongoingCostBreakdown: {
+    rows: BreakdownRow[];
+    total: number;
+  };
+  cashSavingsBreakdown: {
+    rows: BreakdownRow[];
+    total: number;
+  };
+  educationalValueBreakdown: {
+    rows: BreakdownRow[];
+    totalAnnualValueOfReallocatedTimeGBP: number;
+  };
+  usageContext: UsageContext;
+  commercialSummary: CommercialSummary;
+  qaChecks: QaSummary;
+  projectionSummary: ProjectionSummary;
+  sensitivitySummary: SensitivitySummary;
+  outputMetadata: OutputMetadata;
+};
+
 export type RoiModel = {
   inputs: Inputs;
   adoption: AdoptionSummary;
@@ -189,8 +372,10 @@ export type RoiModel = {
   costs: CostSummary;
   schoolYear1: Year1Metrics;
   internalYear1: Year1Metrics;
+  schoolProjectionSummary: ProjectionSummary;
   schoolProjection5y: YearRow[];
   schoolRoiByYear: (number | null)[];
+  internalProjectionSummary: ProjectionSummary;
   internalProjection5y: YearRow[];
   internalRoiByYear: (number | null)[];
   sensitivities: SensitivitySummary;
@@ -209,6 +394,7 @@ export type SchoolView = {
 };
 
 export type InternalView = {
+  assumptionsGovernance: AssumptionsGovernanceSummary;
   adoption: AdoptionSummary;
   reductions: Reductions;
   usage: UsageSummary;
@@ -216,6 +402,7 @@ export type InternalView = {
   cashSavings: CashSavingsSummary;
   costs: CostSummary;
   year1: Year1Metrics;
+  projectionSummary: ProjectionSummary;
   projection5y: YearRow[];
   sensitivities: SensitivitySummary;
 };

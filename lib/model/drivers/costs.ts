@@ -3,14 +3,14 @@ import { CostSummary, Inputs, UsageSummary } from "../types";
 
 export function calculateCosts(inputs: Inputs, usage: UsageSummary): CostSummary {
   const licenceFeeAnnual = nonneg(inputs.licenceFeeAnnual);
-  const aiInferenceCostAnnual =
+  const aiInferenceCostAnnualEstimate =
     (usage.estimatedInputTokensAnnual / 1_000_000) * nonneg(inputs.gbpPer1MInputTokens) +
     (usage.estimatedOutputTokensAnnual / 1_000_000) * nonneg(inputs.gbpPer1MOutputTokens);
+  const aiInferenceCostAnnualInModel =
+    inputs.aiCostingMode === "UsageBasedEstimate" ? aiInferenceCostAnnualEstimate : 0;
 
   const internalRecurringAnnualCost =
-    inputs.aiCostingMode === "UsageBasedEstimate"
-      ? licenceFeeAnnual + aiInferenceCostAnnual
-      : licenceFeeAnnual;
+    licenceFeeAnnual + aiInferenceCostAnnualInModel;
   const trainingOneTime = nonneg(inputs.trainingOneTime);
   const setupOneTime = nonneg(inputs.setupOneTime);
   const schoolRecurringAnnualCost = licenceFeeAnnual;
@@ -18,7 +18,8 @@ export function calculateCosts(inputs: Inputs, usage: UsageSummary): CostSummary
   return {
     aiCostingMode: inputs.aiCostingMode,
     licenceFeeAnnual,
-    aiInferenceCostAnnual,
+    aiInferenceCostAnnualEstimate,
+    aiInferenceCostAnnualInModel,
     trainingOneTime,
     setupOneTime,
     school: {
